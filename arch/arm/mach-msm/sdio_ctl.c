@@ -10,10 +10,6 @@
  * GNU General Public License for more details.
  */
 
-/*
- * SDIO Control Driver -- Provides a binary SDIO muxed control port
- *                       interface.
- */
 
 #include <linux/cdev.h>
 #include <linux/module.h>
@@ -265,8 +261,8 @@ ssize_t sdio_ctl_read(struct file *file,
 			return -ENODEV;
 
 		if (r < 0) {
-			/* qualify error message */
-			/* we get this anytime a signal comes in */
+			
+			
 			if (r != -ERESTARTSYS)
 				pr_err("ERROR:%s: wait_event_interruptible "
 				       "ret %i\n", __func__, r);
@@ -342,8 +338,8 @@ ssize_t sdio_ctl_write(struct file *file,
 			return -ENODEV;
 
 		if (r < 0) {
-			/* qualify error message */
-			/* we get this anytime a signal comes in */
+			
+			
 			if (r != -ERESTARTSYS)
 				pr_err("ERROR:%s: wait_event_interruptible "
 				       "ret %i\n", __func__, r);

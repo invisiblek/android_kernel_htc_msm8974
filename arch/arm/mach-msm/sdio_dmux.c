@@ -11,9 +11,6 @@
  *
  */
 
-/*
- *  SDIO DMUX module.
- */
 
 #define DEBUG
 
@@ -150,7 +147,7 @@ static inline void skb_set_data(struct sk_buff *skb,
 				unsigned char *data,
 				unsigned int len)
 {
-	/* panic if tail > end */
+	
 	skb->data = data;
 	skb->tail = skb->data + len;
 	skb->len  = len;
@@ -162,14 +159,14 @@ static void sdio_mux_save_partial_pkt(struct sdio_mux_hdr *hdr,
 {
 	struct sk_buff *skb;
 
-	/* i think we can avoid cloning here */
+	
 	skb =  skb_clone(skb_mux, GFP_KERNEL);
 	if (!skb) {
 		pr_err("%s: cannot clone skb\n", __func__);
 		return;
 	}
 
-	/* protect? */
+	
 	skb_set_data(skb, (unsigned char *)hdr,
 		     skb->tail - (unsigned char *)hdr);
 	sdio_partial_pkt.skb = skb;
@@ -186,13 +183,13 @@ static void *handle_sdio_mux_data(struct sdio_mux_hdr *hdr,
 	void *rp = (void *)hdr;
 	unsigned long flags;
 
-	/* protect? */
+	
 	rp += sizeof(*hdr);
 	if (rp < (void *)skb_mux->tail)
 		rp += (hdr->pkt_len + hdr->pad_len);
 
 	if (rp > (void *)skb_mux->tail) {
-		/* partial packet */
+		
 		sdio_mux_save_partial_pkt(hdr, skb_mux);
 		goto packet_done;
 	}
@@ -210,8 +207,8 @@ static void *handle_sdio_mux_data(struct sdio_mux_hdr *hdr,
 	DBG("%s: head %p data %p tail %p end %p len %d\n",
 	    __func__, skb->head, skb->data, skb->tail, skb->end, skb->len);
 
-	/* probably we should check channel status */
-	/* discard packet early if local side not open */
+	
+	
 	spin_lock_irqsave(&sdio_ch[hdr->ch_id].lock, flags);
 	if (sdio_ch[hdr->ch_id].receive_cb)
 		sdio_ch[hdr->ch_id].receive_cb(sdio_ch[hdr->ch_id].priv, skb);
@@ -246,7 +243,7 @@ static void *handle_sdio_mux_command(struct sdio_mux_hdr *hdr,
 			send_open = 1;
 		}
 
-		/* notify client so it can update its status */
+		
 		if (sdio_ch[hdr->ch_id].receive_cb)
 			sdio_ch[hdr->ch_id].receive_cb(
 					sdio_ch[hdr->ch_id].priv, NULL);
@@ -261,7 +258,7 @@ static void *handle_sdio_mux_command(struct sdio_mux_hdr *hdr,
 
 		break;
 	case SDIO_MUX_HDR_CMD_CLOSE:
-		/* probably should drop pending write */
+		
 		spin_lock_irqsave(&sdio_ch[hdr->ch_id].lock, flags);
 		sdio_ch[hdr->ch_id].status &= ~SDIO_CH_REMOTE_OPEN;
 		spin_unlock_irqrestore(&sdio_ch[hdr->ch_id].lock, flags);
@@ -280,7 +277,7 @@ static void *handle_sdio_partial_pkt(struct sk_buff *skb_mux)
 	struct sdio_mux_hdr *p_hdr;
 	void *ptr, *rp = skb_mux->data;
 
-	/* protoect? */
+	
 	if (sdio_partial_pkt.valid) {
 		p_skb = sdio_partial_pkt.skb;
 
@@ -321,7 +318,7 @@ static void sdio_mux_read_data(struct work_struct *work)
 	}
 
 	DBG("%s: reading\n", __func__);
-	/* should probably have a separate read lock */
+	
 	mutex_lock(&sdio_mux_lock);
 	sz = sdio_read_avail(sdio_mux_ch);
 	DBG("%s: read avail %d\n", __func__, sz);
@@ -332,11 +329,11 @@ static void sdio_mux_read_data(struct work_struct *work)
 		return;
 	}
 
-	/* net_ip_aling is probably not required */
+	
 	if (sdio_partial_pkt.valid)
 		len = sdio_partial_pkt.skb->len;
 
-	/* If allocation fails attempt to get a smaller chunk of mem */
+	
 	do {
 		skb_mux = __dev_alloc_skb(sz + NET_IP_ALIGN + len, GFP_KERNEL);
 		if (skb_mux)
@@ -345,11 +342,6 @@ static void sdio_mux_read_data(struct work_struct *work)
 		pr_err("%s: cannot allocate skb of size:%d + "
 			"%d (NET_SKB_PAD)\n", __func__,
 			sz + NET_IP_ALIGN + len, NET_SKB_PAD);
-		/* the skb structure adds NET_SKB_PAD bytes to the memory
-		 * request, which may push the actual request above PAGE_SIZE
-		 * in that case, we need to iterate one more time to make sure
-		 * we get the memory request under PAGE_SIZE
-		 */
 		if (sz + NET_IP_ALIGN + len + NET_SKB_PAD <= PAGE_SIZE) {
 			pr_err("%s: allocation failed\n", __func__);
 			mutex_unlock(&sdio_mux_lock);
@@ -361,7 +353,7 @@ static void sdio_mux_read_data(struct work_struct *work)
 	skb_reserve(skb_mux, NET_IP_ALIGN + len);
 	ptr = skb_put(skb_mux, sz);
 
-	/* half second wakelock is fine? */
+	
 	wake_lock_timeout(&sdio_mux_ch_wakelock, HZ / 2);
 	rc = sdio_read(sdio_mux_ch, ptr, sz);
 	DBG("%s: read %d\n", __func__, rc);
@@ -379,13 +371,13 @@ static void sdio_mux_read_data(struct work_struct *work)
 	    skb_mux->head, skb_mux->data, skb_mux->tail,
 	    skb_mux->end, skb_mux->len);
 
-	/* move to a separate function */
-	/* probably do skb_pull instead of pointer adjustment */
+	
+	
 	hdr = handle_sdio_partial_pkt(skb_mux);
 	while ((void *)hdr < (void *)skb_mux->tail) {
 
 		if (((void *)hdr + sizeof(*hdr)) > (void *)skb_mux->tail) {
-			/* handle partial header */
+			
 			sdio_mux_save_partial_pkt(hdr, skb_mux);
 			break;
 		}
@@ -473,9 +465,6 @@ static void sdio_mux_write_data(struct work_struct *work)
 
 		avail = sdio_write_avail(sdio_mux_ch);
 		if (avail < skb->len) {
-			/* we may have to wait for write avail
-			 * notification from sdio al
-			 */
 			DBG("%s: sdio_write_avail(%d) < skb->len(%d)\n",
 					__func__, avail, skb->len);
 
@@ -497,14 +486,10 @@ static void sdio_mux_write_data(struct work_struct *work)
 			else
 				dev_kfree_skb_any(skb);
 		} else if (rc == -EAGAIN || rc == -ENOMEM) {
-			/* recoverable error - retry again later */
+			
 			reschedule = 1;
 			break;
 		} else if (rc == -ENODEV) {
-			/*
-			 * sdio_al suffered some kind of fatal error
-			 * prevent future writes and clean up pending ones
-			 */
 			fatal_error = 1;
 			do {
 				ch_id = ((struct sdio_mux_hdr *)
@@ -517,10 +502,6 @@ static void sdio_mux_write_data(struct work_struct *work)
 			spin_unlock_irqrestore(&sdio_mux_write_lock, flags);
 			return;
 		} else {
-			/* unknown error condition - drop the
-			 * skb and reschedule for the
-			 * other skb's
-			 */
 			pr_err("%s: sdio_mux_write error %d"
 				   " for ch %d, skb=%p\n",
 				__func__, rc, ch_id, skb);
@@ -606,10 +587,8 @@ int msm_sdio_dmux_write(uint32_t id, struct sk_buff *skb)
 	spin_unlock_irqrestore(&sdio_ch[id].lock, flags);
 
 	spin_lock_irqsave(&sdio_mux_write_lock, flags);
-	/* if skb do not have any tailroom for padding,
-	   copy the skb into a new expanded skb */
 	if ((skb->len & 0x3) && (skb_tailroom(skb) < (4 - (skb->len & 0x3)))) {
-		/* revisit, probably dev_alloc_skb and memcpy is effecient */
+		
 		new_skb = skb_copy_expand(skb, skb_headroom(skb),
 					  4 - (skb->len & 0x3), GFP_ATOMIC);
 		if (new_skb == NULL) {
@@ -624,8 +603,6 @@ int msm_sdio_dmux_write(uint32_t id, struct sk_buff *skb)
 
 	hdr = (struct sdio_mux_hdr *)skb_push(skb, sizeof(struct sdio_mux_hdr));
 
-	/* caller should allocate for hdr and padding
-	   hdr is fine, padding is tricky */
 	hdr->magic_num = SDIO_MUX_HDR_MAGIC_NO;
 	hdr->cmd = SDIO_MUX_HDR_CMD_DATA;
 	hdr->reserved = 0;
@@ -721,7 +698,7 @@ static void sdio_mux_notify(void *_dev, unsigned event)
 {
 	DBG("%s: event %d notified\n", __func__, event);
 
-	/* write avail may not be enouogh for a packet, but should be fine */
+	
 	if ((event == SDIO_EVENT_DATA_WRITE_AVAIL) &&
 	    sdio_write_avail(sdio_mux_ch))
 		queue_work(sdio_mux_workqueue, &work_sdio_mux_write);
@@ -868,14 +845,14 @@ static int sdio_dmux_remove(struct platform_device *pdev)
 	if (!sdio_mux_initialized)
 		return 0;
 
-	/* set reset state for any open channels */
+	
 	for (i = 0; i < SDIO_DMUX_NUM_CHANNELS; ++i) {
 		spin_lock_irqsave(&sdio_ch[i].lock, ch_lock_flags);
 		if (sdio_ch_is_open(i)) {
 			sdio_ch[i].status |= SDIO_CH_IN_RESET;
 			sdio_ch[i].status &= ~SDIO_CH_REMOTE_OPEN;
 
-			/* notify client so it can update its status */
+			
 			if (sdio_ch[i].receive_cb)
 				sdio_ch[i].receive_cb(
 						sdio_ch[i].priv, NULL);
@@ -883,7 +860,7 @@ static int sdio_dmux_remove(struct platform_device *pdev)
 		spin_unlock_irqrestore(&sdio_ch[i].lock, ch_lock_flags);
 	}
 
-	/* cancel any pending writes */
+	
 	spin_lock_irqsave(&sdio_mux_write_lock, write_lock_flags);
 	while ((skb = __skb_dequeue(&sdio_mux_write_pool))) {
 		i = ((struct sdio_mux_hdr *)skb->data)->ch_id;

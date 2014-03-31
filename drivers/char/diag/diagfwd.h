@@ -54,7 +54,6 @@ void diag_cmp_logging_modes_diagfwd_bridge(int old_mode, int new_mode);
 int diag_process_apps_pkt(unsigned char *buf, int len);
 void diag_reset_smd_data(int queue);
 int diag_apps_responds(void);
-/* State for diag forwarding */
 #ifdef CONFIG_DIAG_OVER_USB
 int diagfwd_connect(void);
 int diagfwd_disconnect(void);
@@ -62,4 +61,9 @@ int diagfwd_disconnect(void);
 extern int diag_debug_buf_idx;
 extern unsigned char diag_debug_buf[1024];
 extern struct platform_driver msm_diag_dci_driver;
+
+#define SMD_FUNC_CLOSE 0
+#define SMD_FUNC_OPEN_DIAG 1
+#define SMD_FUNC_OPEN_BT 2
+void diag_smd_enable(smd_channel_t *ch, char *src, int mode);
 #endif

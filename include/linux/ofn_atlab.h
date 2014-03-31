@@ -10,10 +10,6 @@
  * GNU General Public License for more details.
  *
  */
-/*
- * Atlab optical Finger Navigation driver
- *
- */
 
 struct ofn_function1 {
 	bool no_motion1_en;

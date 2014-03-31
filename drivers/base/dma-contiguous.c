@@ -39,6 +39,8 @@
 #include <linux/dma-contiguous.h>
 #include <trace/events/kmem.h>
 
+#include <htc_debug/stability/htc_report_meminfo.h>
+
 #ifndef SZ_1M
 #define SZ_1M (1 << 20)
 #endif
@@ -98,16 +100,6 @@ static struct cma *cma_get_area_by_name(const char *name)
 #define CMA_SIZE_MBYTES 0
 #endif
 
-/*
- * Default global CMA area size can be defined in kernel's .config.
- * This is usefull mainly for distro maintainers to create a kernel
- * that works correctly for most supported systems.
- * The size can be set in bytes or as a percentage of the total memory
- * in the system.
- *
- * Users, who want to set the size of global CMA area for their system
- * should use cma= kernel parameter.
- */
 static const phys_addr_t size_bytes = CMA_SIZE_MBYTES * SZ_1M;
 static phys_addr_t size_cmdline = -1;
 
@@ -126,10 +118,6 @@ static phys_addr_t __init __maybe_unused cma_early_percent_memory(void)
 	struct memblock_region *reg;
 	unsigned long total_pages = 0;
 
-	/*
-	 * We cannot use memblock_phys_mem_size() here, because
-	 * memblock_analyze() has not been called yet.
-	 */
 	for_each_memblock(memory, reg)
 		total_pages += memblock_region_memory_end_pfn(reg) -
 			       memblock_region_memory_base_pfn(reg);
@@ -202,7 +190,6 @@ no_mem:
 	return ERR_PTR(ret);
 }
 
-/*****************************************************************************/
 
 #ifdef CONFIG_OF
 int __init cma_fdt_scan(unsigned long node, const char *uname,
@@ -233,16 +220,6 @@ int __init cma_fdt_scan(unsigned long node, const char *uname,
 }
 #endif
 
-/**
- * dma_contiguous_reserve() - reserve area for contiguous memory handling
- * @limit: End address of the reserved memory (optional, 0 for any).
- *
- * This function reserves memory from early allocator. It should be
- * called by arch specific code once the early allocator (memblock or bootmem)
- * has been activated and all other subsystems have already allocated/reserved
- * memory. It reserves contiguous areas for global, device independent
- * allocations and (optionally) all areas defined in device tree structures.
- */
 void __init dma_contiguous_reserve(phys_addr_t limit)
 {
 	phys_addr_t sel_size = 0;
@@ -277,20 +254,6 @@ void __init dma_contiguous_reserve(phys_addr_t limit)
 #endif
 };
 
-/**
- * dma_contiguous_reserve_area() - reserve custom contiguous area
- * @size: Size of the reserved area (in bytes),
- * @base: Pointer to the base address of the reserved area, also used to return
- * 	  base address of the actually reserved area, optional, use pointer to
- *	  0 for any
- * @limit: End address of the reserved memory (optional, 0 for any).
- *
- * This function reserves memory from early allocator. It should be
- * called by arch specific code once the early allocator (memblock or bootmem)
- * has been activated and all other subsystems have already allocated/reserved
- * memory. This function allows to create custom reserved areas for specific
- * devices.
- */
 int __init dma_contiguous_reserve_area(phys_addr_t size, phys_addr_t *res_base,
 				       phys_addr_t limit, const char *name)
 {
@@ -302,7 +265,7 @@ int __init dma_contiguous_reserve_area(phys_addr_t size, phys_addr_t *res_base,
 		 (unsigned long)size, (unsigned long)base,
 		 (unsigned long)limit);
 
-	/* Sanity checks */
+	
 	if (cma_area_count == ARRAY_SIZE(cma_areas)) {
 		pr_err("Not enough slots for CMA reserved regions!\n");
 		return -ENOSPC;
@@ -311,13 +274,13 @@ int __init dma_contiguous_reserve_area(phys_addr_t size, phys_addr_t *res_base,
 	if (!size)
 		return -EINVAL;
 
-	/* Sanitise input arguments */
+	
 	alignment = PAGE_SIZE << max(MAX_ORDER - 1, pageblock_order);
 	base = ALIGN(base, alignment);
 	size = ALIGN(size, alignment);
 	limit &= ~(alignment - 1);
 
-	/* Reserve memory */
+	
 	if (base) {
 		if (memblock_is_region_reserved(base, size) ||
 		    memblock_reserve(base, size) < 0) {
@@ -325,10 +288,6 @@ int __init dma_contiguous_reserve_area(phys_addr_t size, phys_addr_t *res_base,
 			goto err;
 		}
 	} else {
-		/*
-		 * Use __memblock_alloc_base() since
-		 * memblock_alloc_base() panic()s.
-		 */
 		phys_addr_t addr = __memblock_alloc_base(size, alignment, limit);
 		if (!addr) {
 			ret = -ENOMEM;
@@ -338,10 +297,6 @@ int __init dma_contiguous_reserve_area(phys_addr_t size, phys_addr_t *res_base,
 		}
 	}
 
-	/*
-	 * Each reserved area must be initialised later, when more kernel
-	 * subsystems (like slab allocator) are available.
-	 */
 	cma_areas[cma_area_count].base = base;
 	cma_areas[cma_area_count].size = size;
 	cma_areas[cma_area_count].name = name;
@@ -351,7 +306,7 @@ int __init dma_contiguous_reserve_area(phys_addr_t size, phys_addr_t *res_base,
 	pr_info("CMA: reserved %ld MiB at %08lx\n", (unsigned long)size / SZ_1M,
 		(unsigned long)base);
 
-	/* Architecture specific contiguous memory fixup. */
+	
 	dma_contiguous_early_fixup(base, size);
 	return 0;
 err:
@@ -359,15 +314,6 @@ err:
 	return ret;
 }
 
-/**
- * dma_contiguous_add_device() - add device to custom contiguous reserved area
- * @dev:   Pointer to device structure.
- * @base: Pointer to the base address of the reserved area returned by
- *        dma_contiguous_reserve_area() function, also used to return
- *
- * This function assigns the given device to the contiguous memory area
- * reserved earlier by dma_contiguous_reserve_area() function.
- */
 int __init dma_contiguous_add_device(struct device *dev, phys_addr_t base)
 {
 	if (cma_map_count == ARRAY_SIZE(cma_maps)) {
@@ -454,17 +400,13 @@ phys_addr_t cma_get_base(struct device *dev)
 	return cma->base_pfn << PAGE_SHIFT;
 }
 
-/**
- * dma_alloc_from_contiguous() - allocate pages from contiguous area
- * @dev:   Pointer to device for which the allocation is performed.
- * @count: Requested number of pages.
- * @align: Requested alignment of pages (in PAGE_SIZE order).
- *
- * This function allocates memory buffer for specified device. It uses
- * device specific contiguous memory area if available or the default
- * global one. Requires architecture specific get_dev_cma_area() helper
- * function.
- */
+bool cma_area_exist(struct device *dev)
+{
+	struct cma *cma = dev_get_cma_area(dev);
+
+	return (cma != dma_contiguous_def_area);
+}
+
 struct page *dma_alloc_from_contiguous(struct device *dev, int count,
 				       unsigned int align)
 {
@@ -501,6 +443,7 @@ struct page *dma_alloc_from_contiguous(struct device *dev, int count,
 		if (ret == 0) {
 			bitmap_set(cma->bitmap, pageno, count);
 			page = pfn_to_page(pfn);
+			add_meminfo_total_pages(NR_DMA_PAGES, count);
 			break;
 		} else if (ret != -EBUSY) {
 			break;
@@ -510,7 +453,7 @@ struct page *dma_alloc_from_contiguous(struct device *dev, int count,
 
 		pr_debug("%s(): memory range at %p is busy, retrying\n",
 			 __func__, pfn_to_page(pfn));
-		/* try again with a bit different memory target */
+		
 		start = pageno + mask + 1;
 	}
 
@@ -519,16 +462,6 @@ struct page *dma_alloc_from_contiguous(struct device *dev, int count,
 	return page;
 }
 
-/**
- * dma_release_from_contiguous() - release allocated pages
- * @dev:   Pointer to device for which the pages were allocated.
- * @pages: Allocated pages.
- * @count: Number of allocated pages.
- *
- * This function releases memory allocated by dma_alloc_from_contiguous().
- * It returns false when provided pages do not belong to contiguous area and
- * true otherwise.
- */
 bool dma_release_from_contiguous(struct device *dev, struct page *pages,
 				 int count)
 {
@@ -546,6 +479,8 @@ bool dma_release_from_contiguous(struct device *dev, struct page *pages,
 		return false;
 
 	VM_BUG_ON(pfn + count > cma->base_pfn + cma->count);
+
+	sub_meminfo_total_pages(NR_DMA_PAGES, count);
 
 	mutex_lock(&cma_mutex);
 	bitmap_clear(cma->bitmap, pfn - cma->base_pfn, count);

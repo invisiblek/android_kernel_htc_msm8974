@@ -13,6 +13,5 @@
 
 #include "adreno.h"
 
-/* Instantiate tracepoints */
 #define CREATE_TRACE_POINTS
 #include "adreno_trace.h"

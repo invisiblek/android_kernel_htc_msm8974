@@ -225,8 +225,9 @@ static int mdss_mdp_rotator_queue_sub(struct mdss_mdp_rotator_session *rot,
 	ctl = mdss_mdp_ctl_mixer_switch(ctl,
 			MDSS_MDP_WB_CTL_TYPE_BLOCK);
 	if (!ctl) {
-		ret = -EINVAL;
-		goto error;
+		if (rot_pipe->mixer->ctl->shared_lock)
+			mutex_unlock(rot_pipe->mixer->ctl->shared_lock);
+		return -EINVAL;
 	} else {
 		rot->pipe->mixer = ctl->mixer_left;
 	}
@@ -413,7 +414,7 @@ int mdss_mdp_rotator_setup(struct msm_fb_data_type *mfd,
 		goto rot_err;
 	}
 
-	/* keep only flags of interest to rotator */
+	
 	rot->flags = req->flags & (MDP_ROT_90 | MDP_FLIP_LR | MDP_FLIP_UD |
 				   MDP_SECURE_OVERLAY_SESSION);
 
@@ -437,15 +438,10 @@ int mdss_mdp_rotator_setup(struct msm_fb_data_type *mfd,
 		rot->flags |= MDP_DEINTERLACE;
 		rot->src_rect.h /= 2;
 		rot->src_rect.y = DIV_ROUND_UP(rot->src_rect.y, 2);
-		rot->src_rect.y &= ~1;
 	}
 
 	rot->dst = rot->src_rect;
 
-	/*
-	 * by default, rotator output should be placed directly on
-	 * output buffer address without any offset.
-	 */
 	rot->dst.x = 0;
 	rot->dst.y = 0;
 
@@ -499,19 +495,11 @@ int mdss_mdp_rotator_setup(struct msm_fb_data_type *mfd,
 		rot->src_rect.w = width;
 
 		if (rot->flags & MDP_ROT_90) {
-			/*
-			 * If rotated by 90 first half should be on top.
-			 * But if horizontally flipped should be on bottom.
-			 */
 			if (rot->flags & MDP_FLIP_LR)
 				rot->dst.y = tmp->src_rect.w;
 			else
 				tmp->dst.y = rot->src_rect.w;
 		} else {
-			/*
-			 * If not rotated, first half should be the left part
-			 * of the frame, unless horizontally flipped
-			 */
 			if (rot->flags & MDP_FLIP_LR)
 				rot->dst.x = tmp->src_rect.w;
 			else
@@ -545,11 +533,12 @@ static int mdss_mdp_rotator_finish(struct mdss_mdp_rotator_session *rot)
 	int ret = 0;
 	struct msm_sync_pt_data *rot_sync_pt_data;
 	struct work_struct commit_work;
+	struct list_head list;
 
 	if (!rot)
 		return -ENODEV;
 
-	pr_debug("finish rot id=%x\n", rot->session_id);
+	pr_info("finish rot id=%x\n", rot->session_id);
 
 	if (rot->next)
 		mdss_mdp_rotator_finish(rot->next);
@@ -562,9 +551,11 @@ static int mdss_mdp_rotator_finish(struct mdss_mdp_rotator_session *rot)
 
 	rot_sync_pt_data = rot->rot_sync_pt_data;
 	commit_work = rot->commit_work;
+	list = rot->list;
 	memset(rot, 0, sizeof(*rot));
 	rot->rot_sync_pt_data = rot_sync_pt_data;
 	rot->commit_work = commit_work;
+	rot->list = list;
 
 	if (rot_pipe) {
 		struct mdss_mdp_mixer *mixer = rot_pipe->mixer;
@@ -600,6 +591,8 @@ int mdss_mdp_rotator_release_all(void)
 	for (i = 0, cnt = 0; i < MAX_ROTATOR_SESSIONS; i++) {
 		rot = &rotator_session[i];
 		if (rot->ref_cnt) {
+			if (!list_empty(&rot->list))
+				list_del_init(&rot->list);
 			mdss_mdp_rotator_finish(rot);
 			cnt++;
 		}

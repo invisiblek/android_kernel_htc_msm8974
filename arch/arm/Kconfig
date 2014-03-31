@@ -213,9 +213,6 @@ config NEED_RET_TO_USER
 config ARCH_MTD_XIP
 	bool
 
-config ARCH_WANT_KMAP_ATOMIC_FLUSH
-	bool
-
 config VECTORS_BASE
 	hex
 	default 0xffff0000 if MMU || CPU_HIGH_VECTOR
@@ -1855,7 +1852,7 @@ config ENABLE_DMM
 
 choice
 	prompt "Virtual Memory Reclaim"
-	default NO_VM_RECLAIM
+	default ENABLE_VMALLOC_SAVING
 	help
 	  Select the method of reclaiming virtual memory
 
@@ -2028,6 +2025,8 @@ config ARM_FLUSH_CONSOLE_ON_RESTART
 	  console drivers. This option forces the console lock to be
 	  released if it failed to be acquired, which will cause all the
 	  pending messages to be flushed.
+
+source "arch/arm/mvp/Kconfig"
 
 config CP_ACCESS
 	tristate "CP register access tool"
@@ -2474,6 +2473,8 @@ source "net/Kconfig"
 source "drivers/Kconfig"
 
 source "fs/Kconfig"
+
+source "arch/arm/Kconfig.htc"
 
 source "arch/arm/Kconfig.debug"
 

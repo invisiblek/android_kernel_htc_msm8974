@@ -40,7 +40,6 @@
 #include <linux/sched.h>
 #include <linux/of_fdt.h>
 
-/* fixme */
 #include <asm/tlbflush.h>
 #include <../../mm/mm.h>
 
@@ -81,10 +80,6 @@ void write_to_strongly_ordered_memory(void) { }
 #endif
 EXPORT_SYMBOL(write_to_strongly_ordered_memory);
 
-/* These cache related routines make the assumption (if outer cache is
- * available) that the associated physical memory is contiguous.
- * They will operate on all (L1 and L2 if present) caches.
- */
 void clean_and_invalidate_caches(unsigned long vstart,
 	unsigned long length, unsigned long pstart)
 {
@@ -115,14 +110,6 @@ char *memtype_name[] = {
 
 struct reserve_info *reserve_info;
 
-/**
- * calculate_reserve_limits() - calculate reserve limits for all
- * memtypes
- *
- * for each memtype in the reserve_info->memtype_reserve_table, sets
- * the `limit' field to the largest size of any memblock of that
- * memtype.
- */
 static void __init calculate_reserve_limits(void)
 {
 	struct memblock_region *mr;
@@ -219,7 +206,7 @@ void __init msm_reserve(void)
 
 static int get_ebi_memtype(void)
 {
-	/* on 7x30 and 8x55 "EBI1 kernel PMEM" is really on EBI0 */
+	
 	if (cpu_is_msm7x30() || cpu_is_msm8x55())
 		return MEMTYPE_EBI0;
 	return MEMTYPE_EBI1;
@@ -245,7 +232,7 @@ unsigned int msm_ttbr0;
 
 void store_ttbr0(void)
 {
-	/* Store TTBR0 for post-mortem debugging purposes. */
+	
 	asm("mrc p15, 0, %0, c2, c0, 0\n"
 		: "=r" (msm_ttbr0));
 }
@@ -407,7 +394,6 @@ out:
 	return 0;
 }
 
-/* Function to remove any meminfo blocks which are of size zero */
 static void merge_meminfo(void)
 {
 	int i = 0;
@@ -425,10 +411,6 @@ static void merge_meminfo(void)
 	}
 }
 
-/*
- * Function to scan the device tree and adjust the meminfo table to
- * reflect the memory holes.
- */
 int __init dt_scan_for_memory_hole(unsigned long node, const char *uname,
 		int depth, void *data)
 {
@@ -472,10 +454,6 @@ out:
 	return 0;
 }
 
-/*
- * Split the memory bank to reflect the hole, if present,
- * using the start and end of the memory hole.
- */
 void adjust_meminfo(unsigned long start, unsigned long size)
 {
 	int i;
@@ -510,7 +488,4 @@ unsigned long get_ddr_size(void)
 	return ret;
 }
 
-/* Provide a string that anonymous device tree allocations (those not
- * directly associated with any driver) can use for their "compatible"
- * field */
 EXPORT_COMPAT("qcom,msm-contig-mem");

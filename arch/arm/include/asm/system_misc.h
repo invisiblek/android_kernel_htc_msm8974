@@ -25,6 +25,6 @@ extern void disable_hlt(void);
 extern void enable_hlt(void);
 extern int get_hlt(void);
 
-#endif /* !__ASSEMBLY__ */
+#endif 
 
-#endif /* __ASM_ARM_SYSTEM_MISC_H */
+#endif 

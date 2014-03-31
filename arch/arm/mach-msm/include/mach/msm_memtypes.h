@@ -10,9 +10,6 @@
  * GNU General Public License for more details.
 */
 
-/* The MSM Hardware supports multiple flavors of physical memory.
- * This file captures hardware specific information of these types.
-*/
 
 #ifndef __ASM_ARCH_MSM_MEMTYPES_H
 #define __ASM_ARCH_MSM_MEMTYPES_H
@@ -21,7 +18,6 @@
 #include <linux/init.h>
 
 int __init meminfo_init(unsigned int, unsigned int);
-/* Redundant check to prevent this from being included outside of 7x30 */
 #if defined(CONFIG_ARCH_MSM7X30)
 unsigned int get_num_populated_chipselects(void);
 #endif
@@ -40,11 +36,11 @@ enum {
 };
 
 enum {
-	SYS_MEMORY = 1,        /* system memory*/
-	BOOT_REGION_MEMORY1,   /* boot loader memory 1*/
-	BOOT_REGION_MEMORY2,   /* boot loader memory 2,reserved*/
-	APPSBL_MEMORY,         /* apps boot loader memory*/
-	APPS_MEMORY,           /* apps  usage memory*/
+	SYS_MEMORY = 1,        
+	BOOT_REGION_MEMORY1,   
+	BOOT_REGION_MEMORY2,   
+	APPSBL_MEMORY,         
+	APPS_MEMORY,           
 };
 
 

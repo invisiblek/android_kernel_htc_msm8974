@@ -8,7 +8,7 @@
 
 enum core_id {
 	MSM_VIDC_CORE_0 = 0,
-	MSM_VIDC_CORE_1,      /* for Q6 core */
+	MSM_VIDC_CORE_1,      
 	MSM_VIDC_CORES_MAX,
 };
 
@@ -18,10 +18,6 @@ enum session_type {
 	MSM_VIDC_MAX_DEVICES,
 };
 
-/* NOTE: if you change this enum you MUST update the
- * "buffer-type-tz-usage-table" for any affected target
- * in arch/arm/boot/dts/<arch>.dtsi
- */
 enum hal_buffer {
 	HAL_BUFFER_INPUT = 0x1,
 	HAL_BUFFER_OUTPUT = 0x2,

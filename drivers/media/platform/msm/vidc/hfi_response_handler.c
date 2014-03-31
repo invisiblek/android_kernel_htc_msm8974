@@ -20,6 +20,9 @@
 #include "msm_vidc_debug.h"
 #include "vidc_hfi.h"
 
+#ifdef REDUCE_KERNEL_ERROR_LOG
+static int debug_kernel_count=0;
+#endif
 static enum vidc_status hfi_map_err_status(int hfi_err)
 {
 	enum vidc_status vidc_err;
@@ -243,8 +246,17 @@ static void hfi_process_event_notify(
 
 	switch (pkt->event_id) {
 	case HFI_EVENT_SYS_ERROR:
+#ifdef REDUCE_KERNEL_ERROR_LOG
+		if(debug_kernel_count<=10)
+		{
 		dprintk(VIDC_ERR, "HFI_EVENT_SYS_ERROR: %d, 0x%x\n",
 			pkt->event_data1, pkt->event_data2);
+		debug_kernel_count++;
+		}
+#else
+		dprintk(VIDC_ERR, "HFI_EVENT_SYS_ERROR: %d, 0x%x\n",
+			pkt->event_data1, pkt->event_data2);
+#endif
 		hfi_process_sys_error(callback, device_id);
 		break;
 	case HFI_EVENT_SESSION_ERROR:
@@ -282,7 +294,9 @@ static void hfi_process_sys_init_done(
 	u8 *data_ptr;
 	int prop_id;
 	enum vidc_status status = VIDC_ERR_NONE;
-
+#ifdef REDUCE_KERNEL_ERROR_LOG
+	debug_kernel_count=0;
+#endif
 	dprintk(VIDC_DBG, "RECEIVED:SYS_INIT_DONE");
 	if (sizeof(struct hfi_msg_sys_init_done_packet) > pkt->size) {
 		dprintk(VIDC_ERR, "hal_process_sys_init_done:bad_pkt_size: %d",
@@ -936,7 +950,7 @@ static void hfi_process_session_ftb_done(
 			dprintk(VIDC_ERR,
 				"got buffer back with error %x",
 				pkt->error_type);
-			/* Proceed with the FBD */
+			
 		}
 
 		data_done.device_id = device_id;
@@ -1040,7 +1054,9 @@ static void hfi_process_session_stop_done(
 		struct hfi_msg_session_stop_done_packet *pkt)
 {
 	struct msm_vidc_cb_cmd_done cmd_done;
-
+#ifdef REDUCE_KERNEL_ERROR_LOG
+	debug_kernel_count=0;
+#endif
 	dprintk(VIDC_DBG, "RECEIVED:SESSION_STOP_DONE");
 
 	if (!pkt || pkt->size !=
@@ -1207,11 +1223,6 @@ static void hfi_process_sys_get_prop_image_version(
 		return;
 	}
 	str_image_version = (u8 *)&pkt->rg_property_data[1];
-	/*
-	 * The version string returned by firmware includes null
-	 * characters at the start and in between. Replace the null
-	 * characters with space, to print the version info.
-	 */
 	for (i = 0; i < version_string_size; i++) {
 		if (str_image_version[i] != '\0')
 			version[i] = str_image_version[i];

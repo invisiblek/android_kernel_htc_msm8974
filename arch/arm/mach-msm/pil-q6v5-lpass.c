@@ -31,6 +31,10 @@
 #include <mach/ramdump.h>
 #include <mach/msm_smem.h>
 #include <mach/msm_bus_board.h>
+#if defined(CONFIG_HTC_FEATURES_SSR)
+#include <mach/devices_dtb.h>
+#include <mach/devices_cmdline.h>
+#endif
 
 #include "peripheral-loader.h"
 #include "pil-q6v5.h"
@@ -105,11 +109,6 @@ static int pil_lpass_shutdown(struct pil_desc *pil)
 
 	pil_q6v5_halt_axi_port(pil, drv->axi_halt_base);
 
-	/*
-	 * If the shutdown function is called before the reset function, clocks
-	 * will not be enabled yet. Enable them here so that register writes
-	 * performed during the shutdown succeed.
-	 */
 	if (drv->is_booted == false)
 		pil_lpass_enable_clks(drv);
 
@@ -129,7 +128,7 @@ static int pil_lpass_reset(struct pil_desc *pil)
 	phys_addr_t start_addr = pil_get_entry_addr(pil);
 	int ret;
 
-	/* Deassert reset to subsystem and wait for propagation */
+	
 	writel_relaxed(0, drv->restart_reg);
 	mb();
 	udelay(2);
@@ -138,7 +137,7 @@ static int pil_lpass_reset(struct pil_desc *pil)
 	if (ret)
 		return ret;
 
-	/* Program Image Address */
+	
 	writel_relaxed((start_addr >> 4) & 0x0FFFFFF0,
 				drv->reg_base + QDSP6SS_RST_EVB);
 
@@ -208,7 +207,7 @@ static int wcnss_notifier_cb(struct notifier_block *this, unsigned long code,
 								void *ss_handle)
 {
 	int ret;
-	pr_debug("%s: W-Notify: event %lu\n", __func__, code);
+	pr_info("%s: W-Notify: event %lu\n", __func__, code);
 	ret = sysmon_send_event(SYSMON_SS_LPASS, "wcnss", code);
 	if (ret < 0)
 		pr_err("%s: sysmon_send_event error %d", __func__, ret);
@@ -223,7 +222,7 @@ static int modem_notifier_cb(struct notifier_block *this, unsigned long code,
 								void *ss_handle)
 {
 	int ret;
-	pr_debug("%s: M-Notify: event %lu\n", __func__, code);
+	pr_info("%s: M-Notify: event %lu\n", __func__, code);
 	ret = sysmon_send_event(SYSMON_SS_LPASS, "modem", code);
 	if (ret < 0)
 		pr_err("%s: sysmon_send_event error %d", __func__, ret);
@@ -234,7 +233,11 @@ static struct notifier_block mnb = {
 	.notifier_call = modem_notifier_cb,
 };
 
+#if defined(CONFIG_HTC_DEBUG_SSR)
+static void adsp_log_failure_reason(struct subsys_device *dev)
+#else
 static void adsp_log_failure_reason(void)
+#endif
 {
 	char *reason;
 	char buffer[81];
@@ -256,13 +259,20 @@ static void adsp_log_failure_reason(void)
 	memcpy(buffer, reason, size);
 	buffer[size] = '\0';
 	pr_err("ADSP subsystem failure reason: %s", buffer);
+#if defined(CONFIG_HTC_DEBUG_SSR)
+	subsys_set_restart_reason(dev, buffer);
+#endif
 	memset((void *)reason, 0x0, size);
 	wmb();
 }
 
 static void restart_adsp(struct lpass_data *drv)
 {
+#if defined(CONFIG_HTC_DEBUG_SSR)
+	adsp_log_failure_reason(drv->subsys);
+#else
 	adsp_log_failure_reason();
+#endif
 	subsystem_restart_dev(drv->subsys);
 }
 
@@ -271,6 +281,9 @@ static void adsp_fatal_fn(struct work_struct *work)
 	struct lpass_data *drv = container_of(work, struct lpass_data, work);
 
 	pr_err("Watchdog bite received from ADSP!\n");
+#if defined(CONFIG_HTC_DEBUG_SSR)
+	subsys_set_restart_reason(drv->subsys, "Watchdog bite received from ADSP!");
+#endif
 	restart_adsp(drv);
 }
 
@@ -278,9 +291,6 @@ static irqreturn_t adsp_err_fatal_intr_handler (int irq, void *dev_id)
 {
 	struct lpass_data *drv = subsys_to_drv(dev_id);
 
-	/* Ignore if we're the one that set the force stop bit in the outbound
-	 * entry
-	 */
 	if (drv->crash_shutdown)
 		return IRQ_HANDLED;
 
@@ -293,7 +303,7 @@ static irqreturn_t adsp_err_fatal_intr_handler (int irq, void *dev_id)
 
 static void send_q6_nmi(void)
 {
-	/* Send NMI to QDSP6 via an SCM call. */
+	
 	scm_call_atomic1(SCM_SVC_UTIL, SCM_Q6_NMI_CMD, 0x1);
 	pr_debug("%s: Q6 NMI was sent.\n", __func__);
 }
@@ -313,7 +323,7 @@ static struct kobj_attribute adsp_state_attribute =
 
 static struct attribute *attrs[] = {
 	&adsp_state_attribute.attr,
-	NULL,   /* need to NULL terminate the list of attributes */
+	NULL,   
 };
 
 static struct attribute_group attr_group = {
@@ -333,12 +343,12 @@ static int adsp_shutdown(const struct subsys_desc *subsys)
 	struct lpass_data *drv = subsys_to_lpass(subsys);
 
 	send_q6_nmi();
-	/* The write needs to go through before the q6 is shutdown. */
+	
 	mb();
 	pil_shutdown(&drv->q6->desc);
 	disable_irq_nosync(drv->subsys_desc.wdog_bite_irq);
 
-	pr_debug("ADSP is Down\n");
+	pr_info("ADSP is Down\n");
 	adsp_set_state("OFFLINE");
 	return 0;
 }
@@ -350,7 +360,7 @@ static int adsp_powerup(const struct subsys_desc *subsys)
 	ret = pil_boot(&drv->q6->desc);
 	enable_irq(drv->subsys_desc.wdog_bite_irq);
 
-	pr_debug("ADSP is back online\n");
+	pr_info("ADSP is back online\n");
 	adsp_set_state("ONLINE");
 	return ret;
 }
@@ -477,6 +487,18 @@ static int __devinit pil_lpass_driver_probe(struct platform_device *pdev)
 		ret = PTR_ERR(drv->subsys);
 		goto err_subsys;
 	}
+
+#if defined(CONFIG_HTC_FEATURES_SSR)
+#if defined(CONFIG_HTC_FEATURES_SSR_LPASS_ENABLE)
+	subsys_set_restart_level(drv->subsys, RESET_SUBSYS_COUPLED);
+#else
+	if (get_kernel_flag() & KERNEL_FLAG_ENABLE_SSR_LPASS)
+		subsys_set_restart_level(drv->subsys, RESET_SUBSYS_COUPLED);
+#endif
+
+	if (board_mfg_mode() != 0)
+		subsys_set_restart_level(drv->subsys, RESET_SOC);
+#endif
 
 	drv->wcnss_notif_hdle = subsys_notif_register_notifier("wcnss", &wnb);
 	if (IS_ERR(drv->wcnss_notif_hdle)) {

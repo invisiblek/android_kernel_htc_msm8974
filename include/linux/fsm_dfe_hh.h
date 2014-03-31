@@ -15,15 +15,9 @@
 
 #include <linux/ioctl.h>
 
-/*
- * Device interface
- */
 
 #define DFE_HH_DEVICE_NAME		"dfe_hh"
 
-/*
- * IOCTL interface
- */
 
 enum {
 	DFE_IOCTL_COMMAND_CODE_WRITE,
@@ -43,7 +37,7 @@ struct dfe_write_register_mask_param {
 
 struct dfe_read_write_array_param {
 	unsigned int offset;
-	unsigned int num; /* number of 16 bit registers */
+	unsigned int num; 
 	unsigned int *pArray;
 };
 
@@ -51,7 +45,7 @@ struct dfe_command_entry {
 	unsigned int code;
 	unsigned int offset;
 	unsigned int value;
-	unsigned int mask; /* DFE_IOCTL_COMMAND_CODE_WRITE_WITH_MASK only */
+	unsigned int mask; 
 };
 
 struct dfe_command_param {
@@ -79,4 +73,4 @@ struct dfe_command_param {
 	_IOC(_IOC_WRITE, DFE_IOCTL_MAGIC, 0x10, \
 		sizeof(struct dfe_command_param *))
 
-#endif /* _FSM_DFE_HH_H_ */
+#endif 

@@ -14,14 +14,6 @@
 #ifndef __ASM_ARCH_MSM_IOMAP_MSM8226_H
 #define __ASM_ARCH_MSM_IOMAP_MSM8226_H
 
-/* Physical base address and size of peripherals.
- * Ordered by the virtual base addresses they will be mapped at.
- *
- * If you add or remove entries here, you'll want to edit the
- * io desc array in arch/arm/mach-msm/io.c to reflect your
- * changes.
- *
- */
 
 #define MSM8226_MSM_SHARED_RAM_PHYS	0x0FA00000
 
@@ -41,8 +33,8 @@
 #define MSM8226_MPM2_PSHOLD_SIZE	SZ_4K
 
 #ifdef CONFIG_DEBUG_MSM8226_UART
-#define MSM_DEBUG_UART_BASE	IOMEM(0xFA71F000)
-#define MSM_DEBUG_UART_PHYS	0xF991F000
+#define MSM_DEBUG_UART_BASE	IOMEM(0xFA71E000)
+#define MSM_DEBUG_UART_PHYS	0xF991E000
 #endif
 
 #endif

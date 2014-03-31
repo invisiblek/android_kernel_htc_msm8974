@@ -67,7 +67,7 @@ static int interpolate_single_lut(struct single_row_lut *lut, int x)
 
 int interpolate_fcc(struct single_row_lut *fcc_temp_lut, int batt_temp)
 {
-	/* batt_temp is in tenths of degC - convert it to degC for lookups */
+	
 	batt_temp = batt_temp/10;
 	return interpolate_single_lut(fcc_temp_lut, batt_temp);
 }
@@ -75,10 +75,6 @@ int interpolate_fcc(struct single_row_lut *fcc_temp_lut, int batt_temp)
 int interpolate_scalingfactor_fcc(struct single_row_lut *fcc_sf_lut,
 		int cycles)
 {
-	/*
-	 * sf table could be null when no battery aging data is available, in
-	 * that case return 100%
-	 */
 	if (fcc_sf_lut)
 		return interpolate_single_lut(fcc_sf_lut, cycles);
 	else
@@ -91,10 +87,6 @@ int interpolate_scalingfactor(struct sf_lut *sf_lut, int row_entry, int pc)
 	int row1 = 0;
 	int row2 = 0;
 
-	/*
-	 * sf table could be null when no battery aging data is available, in
-	 * that case return 100%
-	 */
 	if (!sf_lut)
 		return 100;
 
@@ -165,7 +157,6 @@ int interpolate_scalingfactor(struct sf_lut *sf_lut, int row_entry, int pc)
 	return scalefactor;
 }
 
-/* get ocv given a soc  -- reverse lookup */
 int interpolate_ocv(struct pc_temp_ocv_lut *pc_temp_ocv,
 				int batt_temp_degc, int pc)
 {
@@ -261,7 +252,7 @@ int interpolate_pc(struct pc_temp_ocv_lut *pc_temp_ocv,
 		if (batt_temp_degc <= pc_temp_ocv->temp[j])
 			break;
 	if (batt_temp_degc == pc_temp_ocv->temp[j]) {
-		/* found an exact match for temp in the table */
+		
 		if (ocv >= pc_temp_ocv->ocv[0][j])
 			return pc_temp_ocv->percent[0];
 		if (ocv <= pc_temp_ocv->ocv[rows - 1][j])
@@ -281,10 +272,6 @@ int interpolate_pc(struct pc_temp_ocv_lut *pc_temp_ocv,
 		}
 	}
 
-	/*
-	 * batt_temp_degc is within temperature for
-	 * column j-1 and j
-	 */
 	if (ocv >= pc_temp_ocv->ocv[0][j])
 		return pc_temp_ocv->percent[0];
 	if (ocv <= pc_temp_ocv->ocv[rows - 1][j - 1])

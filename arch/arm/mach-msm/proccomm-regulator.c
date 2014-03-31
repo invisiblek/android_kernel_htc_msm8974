@@ -27,26 +27,19 @@
 #define MV_TO_UV(mv) ((mv)*1000)
 #define UV_TO_MV(uv) (((uv)+999)/1000)
 
-/*
- * Wrappers for the msm_proc_comm() calls.
- * Does basic impedance matching between what the proccomm interface
- * expects and how the driver sees the world.
- */
 
-/* Converts a proccomm error to an errno value. */
 static int _pcom_err_to_linux_errno(unsigned error)
 {
-	if (!error)		/* 0 == no error */
+	if (!error)		
 		return 0;
-	else if (error & 0x1F)  /* bits 0..4 => parameter 1..5 out of range */
+	else if (error & 0x1F)  
 		return -EDOM;
-	else if (error & 0x100) /* bit 8 => feature not supported */
+	else if (error & 0x100) 
 		return -ENOSYS;
-	else			/* anything else non-zero: unknown error */
+	else			
 		return -EINVAL;
 }
 
-/* vreg_switch: (vreg ID, on/off) => (return code, <null>) */
 static int _vreg_switch(int vreg_id, bool enable)
 {
 	unsigned _id		= (unsigned)vreg_id;
@@ -55,7 +48,6 @@ static int _vreg_switch(int vreg_id, bool enable)
 	return msm_proc_comm(PCOM_VREG_SWITCH, &_id, &_enable);
 }
 
-/* vreg_set_level: (vreg ID, mV) => (return code, <null>) */
 static int _vreg_set_level(int vreg_id, int level_mV)
 {
 	unsigned _id		= (unsigned)vreg_id;
@@ -70,8 +62,6 @@ static int _vreg_set_level(int vreg_id, int level_mV)
 	return _pcom_err_to_linux_errno(_id);
 }
 
-/* vreg_pull_down: (pull down, vreg ID) => (<null>, <null>) */
-/* Returns error code from msm_proc_comm. */
 static int _vreg_pull_down(int vreg_id, bool pull_down)
 {
 	unsigned _id		= (unsigned)vreg_id;
@@ -188,11 +178,6 @@ static struct regulator_ops proccomm_regulator_ops = {
 	.enable_time	= proccomm_vreg_rise_time,
 };
 
-/*
- * Create and register a struct regulator_dev based on the information in
- * a struct proccomm_regulator_info.
- * Fills in the rdev field in struct proccomm_regulator_info.
- */
 static struct regulator_dev *__devinit create_proccomm_rdev(
 	struct proccomm_regulator_info *info, struct device *parent)
 {
@@ -266,10 +251,6 @@ out:
 	return ERR_PTR(rc);
 }
 
-/*
- * Unregister and destroy a struct regulator_dev created by
- * create_proccomm_rdev.
- */
 static void destroy_proccomm_rdev(struct regulator_dev *rdev)
 {
 	struct proccomm_regulator_drvdata *d;

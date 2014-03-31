@@ -10,9 +10,6 @@
  * GNU General Public License for more details.
  */
 
-/*
- * RPCROUTER SDIO XPRT module.
- */
 
 #include <linux/platform_device.h>
 #include <linux/types.h>
@@ -584,7 +581,7 @@ static int rpcrouter_sdio_remote_probe(struct platform_device *pdev)
 		return rc;
 	}
 
-	/* Open up SDIO channel */
+	
 	rc = sdio_open("SDIO_RPC", &sdio_remote_xprt.channel->handle, NULL,
 		      rpcrouter_sdio_remote_notify);
 
@@ -622,7 +619,6 @@ static int rpcrouter_sdio_remote_remove(struct platform_device *pdev)
 	return 0;
 }
 
-/*Remove this platform driver after mainline of SDIO_AL update*/
 static struct platform_driver rpcrouter_sdio_remote_driver = {
 	.probe		= rpcrouter_sdio_remote_probe,
 	.driver		= {

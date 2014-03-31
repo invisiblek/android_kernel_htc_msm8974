@@ -11,6 +11,7 @@
 #include <linux/usb/msm_hsusb_hw.h>
 #include <linux/usb/ulpi.h>
 #include <linux/gpio.h>
+#include <linux/usb/htc_info.h>
 
 #include "ci13xxx_udc.c"
 
@@ -35,8 +36,7 @@ static irqreturn_t msm_udc_irq(int irq, void *data)
 
 static void ci13xxx_msm_suspend(void)
 {
-	struct device *dev = _udc->gadget.dev.parent;
-	dev_dbg(dev, "ci13xxx_msm_suspend\n");
+	USB_INFO("ci13xxx_msm_suspend\n");
 
 	if (_udc_ctxt.wake_irq && !_udc_ctxt.wake_irq_state) {
 		enable_irq_wake(_udc_ctxt.wake_irq);
@@ -47,8 +47,7 @@ static void ci13xxx_msm_suspend(void)
 
 static void ci13xxx_msm_resume(void)
 {
-	struct device *dev = _udc->gadget.dev.parent;
-	dev_dbg(dev, "ci13xxx_msm_resume\n");
+	USB_INFO("ci13xxx_msm_resume\n");
 
 	if (_udc_ctxt.wake_irq && _udc_ctxt.wake_irq_state) {
 		disable_irq_wake(_udc_ctxt.wake_irq);
@@ -69,17 +68,14 @@ static void ci13xxx_msm_disconnect(void)
 				ULPI_CLR(ULPI_MISC_A));
 }
 
-/* Link power management will reduce power consumption by
- * short time HW suspend/resume.
- */
 static void ci13xxx_msm_set_l1(struct ci13xxx *udc)
 {
 	int temp;
-	struct device *dev = udc->gadget.dev.parent;
+	__maybe_unused struct device *dev = udc->gadget.dev.parent;
 
 	dev_dbg(dev, "Enable link power management\n");
 
-	/* Enable remote wakeup and L1 for IN EPs */
+	
 	writel_relaxed(0xffff0000, USB_L1_EP_CTRL);
 
 	temp = readl_relaxed(USB_L1_CONFIG);
@@ -110,12 +106,6 @@ static void ci13xxx_msm_connect(void)
 		temp |= USBCMD_SESS_VLD_CTRL;
 		writel_relaxed(temp, USB_USBCMD);
 
-		/*
-		 * Add memory barrier as it is must to complete
-		 * above USB PHY and Link register writes before
-		 * moving ahead with USB peripheral mode enumeration,
-		 * otherwise USB peripheral mode may not work.
-		 */
 		mb();
 	}
 }
@@ -124,7 +114,7 @@ static void ci13xxx_msm_reset(void)
 {
 	struct ci13xxx *udc = _udc;
 	struct usb_phy *phy = udc->transceiver;
-	struct device *dev = udc->gadget.dev.parent;
+	__maybe_unused struct device *dev = udc->gadget.dev.parent;
 
 	writel_relaxed(0, USB_AHBBURST);
 	writel_relaxed(0x08, USB_AHBMODE);
@@ -140,18 +130,13 @@ static void ci13xxx_msm_reset(void)
 		temp |= (1<<16);
 		writel_relaxed(temp, USB_PHY_CTRL2);
 
-		/*
-		 * Add memory barrier to make sure above LINK writes are
-		 * complete before moving ahead with USB peripheral mode
-		 * enumeration.
-		 */
 		mb();
 	}
 }
 
 static void ci13xxx_msm_notify_event(struct ci13xxx *udc, unsigned event)
 {
-	struct device *dev = udc->gadget.dev.parent;
+	__maybe_unused struct device *dev = udc->gadget.dev.parent;
 
 	switch (event) {
 	case CI13XXX_CONTROLLER_RESET_EVENT:
@@ -262,7 +247,7 @@ static int ci13xxx_msm_probe(struct platform_device *pdev)
 	dev_dbg(&pdev->dev, "ci13xxx_msm_probe\n");
 
 	if (pdata) {
-		/* Acceptable values for nz_itc are: 0,1,2,4,8,16,32,64 */
+		
 		if (pdata->log2_itc > CI13XXX_MSM_MAX_LOG2_ITC ||
 			pdata->log2_itc <= 0)
 			ci13xxx_msm_udc_driver.nz_itc = 0;
@@ -271,7 +256,7 @@ static int ci13xxx_msm_probe(struct platform_device *pdev)
 				1 << (pdata->log2_itc-1);
 
 		is_l1_supported = pdata->l1_supported;
-		/* Set ahb2ahb bypass flag if it is requested. */
+		
 		if (pdata->enable_ahb2ahb_bypass)
 			ci13xxx_msm_udc_driver.flags |=
 				CI13XXX_ENABLE_AHB2AHB_BYPASS;
@@ -335,6 +320,21 @@ iounmap:
 	return ret;
 }
 
+static void ci13xxx_msm_shutdown(struct platform_device *pdev)
+{
+	struct msm_otg *motg;
+	struct ci13xxx *udc = _udc;
+
+	if (!udc || !udc->transceiver)
+		return;
+
+	motg = container_of(udc->transceiver, struct msm_otg, phy);
+
+	if (!atomic_read(&motg->in_lpm))
+		ci13xxx_pullup(&udc->gadget, 0);
+
+}
+
 int ci13xxx_msm_remove(struct platform_device *pdev)
 {
 	pm_runtime_disable(&pdev->dev);
@@ -360,6 +360,7 @@ void msm_hw_bam_disable(bool bam_disable)
 
 static struct platform_driver ci13xxx_msm_driver = {
 	.probe = ci13xxx_msm_probe,
+	.shutdown = ci13xxx_msm_shutdown,
 	.driver = {
 		.name = "msm_hsusb",
 	},

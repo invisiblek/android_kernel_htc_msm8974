@@ -110,42 +110,25 @@ struct goodix_ts_data {
 extern u16 show_len;
 extern u16 total_len;
 
-/***************************PART1:ON/OFF define*******************************/
 #define GTP_CUSTOM_CFG			0
 #define GTP_CHANGE_X2Y			0
 #define GTP_DRIVER_SEND_CFG		1
 #define GTP_HAVE_TOUCH_KEY		1
 
-/* auto updated by .bin file as default */
 #define GTP_AUTO_UPDATE			0
-/* auto updated by head_fw_array in gt9xx_firmware.h,
- * function together with GTP_AUTO_UPDATE */
 #define GTP_HEADER_FW_UPDATE	0
 
 #define GTP_CREATE_WR_NODE		0
 #define GTP_ESD_PROTECT			0
 #define GTP_WITH_PEN			0
 
-/* This cannot work when enable-power-off is on */
 #define GTP_SLIDE_WAKEUP		0
-/* double-click wakeup, function together with GTP_SLIDE_WAKEUP */
 #define GTP_DBL_CLK_WAKEUP		0
 
 #define GTP_DEBUG_ON			0
 #define GTP_DEBUG_ARRAY_ON		0
 #define GTP_DEBUG_FUNC_ON		0
 
-/*************************** PART2:TODO define *******************************/
-/* STEP_1(REQUIRED): Define Configuration Information Group(s) */
-/* Sensor_ID Map: */
-/* sensor_opt1 sensor_opt2 Sensor_ID
- *	GND			GND			0
- *	VDDIO		GND			1
- *	NC			GND			2
- *	GND			NC/300K		3
- *	VDDIO		NC/300K		4
- *	NC			NC/300K		5
-*/
 
 #define GTP_IRQ_TAB		{\
 				IRQ_TYPE_EDGE_RISING,\
@@ -154,7 +137,6 @@ extern u16 total_len;
 				IRQ_TYPE_LEVEL_HIGH\
 				}
 
-/* STEP_3(optional): Specify your special config info if needed */
 #define GTP_IRQ_TAB_RISING	0
 #define GTP_IRQ_TAB_FALLING	1
 #if GTP_CUSTOM_CFG
@@ -171,12 +153,11 @@ extern u16 total_len;
 #define GTP_PRODUCT_ID_BUFFER_MAXSIZE	6
 #define GTP_FW_VERSION_BUFFER_MAXSIZE	4
 #define GTP_MAX_TOUCH		5
-#define GTP_ESD_CHECK_CIRCLE	2000      /* jiffy: ms */
+#define GTP_ESD_CHECK_CIRCLE	2000      
 
-/***************************PART3:OTHER define*********************************/
 #define GTP_DRIVER_VERSION	"V1.8.1<2013/09/01>"
 #define GTP_I2C_NAME		"Goodix-TS"
-#define GTP_POLL_TIME		10     /* jiffy: ms*/
+#define GTP_POLL_TIME		10     
 #define GTP_ADDR_LENGTH		2
 #define GTP_CONFIG_MIN_LENGTH	186
 #define GTP_CONFIG_MAX_LENGTH	240
@@ -185,7 +166,6 @@ extern u16 total_len;
 #define SWITCH_OFF		0
 #define SWITCH_ON		1
 
-/* Registers define */
 #define GTP_READ_COOR_ADDR	0x814E
 #define GTP_REG_SLEEP		0x8040
 #define GTP_REG_SENSOR_ID	0x814A
@@ -197,7 +177,6 @@ extern u16 total_len;
 #define TRIGGER_LOC		8
 
 #define CFG_GROUP_LEN(p_cfg_grp) (sizeof(p_cfg_grp) / sizeof(p_cfg_grp[0]))
-/* Log define */
 #define GTP_DEBUG(fmt, arg...)	do {\
 		if (GTP_DEBUG_ON) {\
 			pr_debug("<<-GTP-DEBUG->> [%d]"fmt"\n",\
@@ -230,7 +209,6 @@ extern u16 total_len;
 					x = y;\
 					y = z;\
 				} while (0)
-/*****************************End of Part III********************************/
 
 void gtp_esd_switch(struct i2c_client *client, int on);
 
@@ -242,4 +220,4 @@ extern void uninit_wr_node(void);
 #if GTP_AUTO_UPDATE
 extern u8 gup_init_update_proc(struct goodix_ts_data *ts);
 #endif
-#endif /* _GOODIX_GT9XX_H_ */
+#endif 

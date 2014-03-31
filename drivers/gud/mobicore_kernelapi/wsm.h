@@ -26,8 +26,8 @@ struct wsm *wsm_create(
 	uint32_t		len,
 	uint32_t		handle,
 
-	/* NULL this may be unknown, so is can be omitted */
+	
 	void			*phys_addr
 );
 
-#endif /* _MC_KAPI_WSM_H_ */
+#endif 

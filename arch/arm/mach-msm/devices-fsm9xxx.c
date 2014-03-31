@@ -27,9 +27,6 @@
 #include <asm/mach/flash.h>
 #include <asm/mach/mmc.h>
 
-/*
- * UARTs
- */
 
 static struct resource resources_uart1[] = {
 	{
@@ -91,9 +88,6 @@ struct platform_device msm_device_uart3 = {
 	.resource	= resources_uart3,
 };
 
-/*
- * SSBIs
- */
 
 #ifdef CONFIG_MSM_SSBI
 #define MSM_SSBI1_PHYS          0x94080000
@@ -153,11 +147,8 @@ struct platform_device msm_device_ssbi3 = {
 	.resource	= msm_ssbi3_resources,
 };
 
-#endif /* CONFIG_I2C_SSBI */
+#endif 
 
-/*
- * GSBI
- */
 
 #ifdef CONFIG_I2C_QUP
 
@@ -192,11 +183,8 @@ struct platform_device msm_gsbi1_qup_i2c_device = {
 	.resource	= gsbi1_qup_i2c_resources,
 };
 
-#endif /* CONFIG_I2C_QUP */
+#endif 
 
-/*
- * NAND
- */
 
 #define MSM_NAND_PHYS		0x81600000
 #define MSM_NAND_SIZE		SZ_4K
@@ -241,18 +229,12 @@ struct platform_device msm_device_nand = {
 	},
 };
 
-/*
- * SMD
- */
 
 struct platform_device msm_device_smd = {
 	.name	= "msm_smd",
 	.id	= -1,
 };
 
-/*
- * ADM
- */
 
 static struct resource msm_dmov_resource[] = {
 	{
@@ -281,9 +263,6 @@ struct platform_device msm_device_dmov = {
 	},
 };
 
-/*
- * SDC
- */
 
 #define MSM_SDC1_PHYS		0x80A00000
 #define MSM_SDC1_SIZE		SZ_4K
@@ -332,9 +311,6 @@ int __init msm_add_sdcc(unsigned int controller, struct mmc_platform_data *plat)
 	return platform_device_register(pdev);
 }
 
-/*
- * QFEC
- */
 
 # define QFEC_MAC_IRQ           INT_SBD_IRQ
 # define QFEC_MAC_BASE          0x40000000
@@ -376,9 +352,6 @@ struct platform_device qfec_device = {
 	.resource       = qfec_resources,
 };
 
-/*
- * FUSE
- */
 
 #if defined(CONFIG_QFP_FUSE)
 
@@ -402,18 +375,12 @@ struct platform_device fsm_qfp_fuse_device = {
 
 #endif
 
-/*
- * XO
- */
 
 struct platform_device fsm_xo_device = {
 	.name   = "fsm_xo_driver",
 	.id     = -1,
 };
 
-/*
- * Watchdog
- */
 
 static struct msm_watchdog_pdata fsm_watchdog_pdata = {
 	.pet_time = 10000,

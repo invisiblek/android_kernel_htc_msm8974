@@ -200,20 +200,14 @@ irqreturn_t mdss_mdp_isr(int irq, void *ptr)
 		mdss_misr_crc_collect(mdata, DISPLAY_MISR_HDMI);
 	}
 
-	if (isr & MDSS_MDP_INTR_WB_0_DONE) {
+	if (isr & MDSS_MDP_INTR_WB_0_DONE)
 		mdss_mdp_intr_done(MDP_INTR_WB_0);
-		mdss_misr_crc_collect(mdata, DISPLAY_MISR_MDP);
-	}
 
-	if (isr & MDSS_MDP_INTR_WB_1_DONE) {
+	if (isr & MDSS_MDP_INTR_WB_1_DONE)
 		mdss_mdp_intr_done(MDP_INTR_WB_1);
-		mdss_misr_crc_collect(mdata, DISPLAY_MISR_MDP);
-	}
 
-	if (isr & MDSS_MDP_INTR_WB_2_DONE) {
+	if (isr & MDSS_MDP_INTR_WB_2_DONE)
 		mdss_mdp_intr_done(MDP_INTR_WB_2);
-		mdss_misr_crc_collect(mdata, DISPLAY_MISR_MDP);
-	}
 
 mdp_isr_done:
 	hist_isr = MDSS_MDP_REG_READ(MDSS_MDP_REG_HIST_INTR_STATUS);
@@ -274,7 +268,7 @@ int mdss_mdp_get_rau_strides(u32 w, u32 h,
 		} else
 			ps->ystride[1] = 32 * 2;
 
-		/* account for both chroma components */
+		
 		ps->ystride[1] <<= 1;
 	} else if (fmt->fetch_planes == MDSS_MDP_PLANE_INTERLEAVED) {
 		ps->rau_cnt = DIV_ROUND_UP(w, 32);
@@ -378,7 +372,7 @@ int mdss_mdp_get_plane_sizes(u32 format, u32 w, u32 h,
 				ps->num_planes = 2;
 				ps->plane_size[1] *= 2;
 				ps->ystride[1] *= 2;
-			} else { /* planar */
+			} else { 
 				ps->num_planes = 3;
 				ps->plane_size[2] = ps->plane_size[1];
 				ps->ystride[2] = ps->ystride[1];
@@ -448,9 +442,9 @@ void mdss_mdp_data_calc_offset(struct mdss_mdp_data *data, u16 x, u16 y,
 
 		data->p[0].addr += x;
 		data->p[1].addr += xoff + (yoff * ps->ystride[1]);
-		if (data->num_planes == 2) /* pseudo planar */
+		if (data->num_planes == 2) 
 			data->p[1].addr += xoff;
-		else /* planar */
+		else 
 			data->p[2].addr += xoff + (yoff * ps->ystride[2]);
 	}
 }
@@ -465,7 +459,7 @@ int mdss_mdp_put_img(struct mdss_mdp_img_data *data)
 	} else if (data->srcp_file) {
 		pr_debug("pmem buf=0x%x\n", data->addr);
 		data->srcp_file = NULL;
-	} else if (!IS_ERR_OR_NULL(data->srcp_ihdl)) {
+	} else if (!IS_ERR_OR_NULL(data->srcp_ihdl) && iclient) {
 		pr_debug("ion hdl=%p buf=0x%x\n", data->srcp_ihdl, data->addr);
 
 		if (is_mdss_iommu_attached()) {
@@ -474,6 +468,7 @@ int mdss_mdp_put_img(struct mdss_mdp_img_data *data)
 				domain = MDSS_IOMMU_DOMAIN_SECURE;
 			else
 				domain = MDSS_IOMMU_DOMAIN_UNSECURE;
+
 			ion_unmap_iommu(iclient, data->srcp_ihdl,
 					mdss_get_iommu_domain(domain), 0);
 
@@ -598,9 +593,9 @@ int mdss_mdp_calc_phase_step(u32 src, u32 dst, u32 *out_phase)
 		return -EINVAL;
 
 	unit = 1 << PHASE_STEP_SHIFT;
-	*out_phase = mult_frac(unit, src, dst);
+	*out_phase = mult_frac(src, unit, dst);
 
-	/* check if overflow is possible */
+	
 	if (src > dst) {
 		residue = *out_phase & (unit - 1);
 		if (residue && ((residue * dst) < (unit - residue)))

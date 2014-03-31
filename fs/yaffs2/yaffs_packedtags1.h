@@ -13,7 +13,6 @@
  * Note: Only YAFFS headers are LGPL, YAFFS C code is covered by GPL.
  */
 
-/* This is used to pack YAFFS1 tags, not YAFFS2 tags. */
 
 #ifndef __YAFFS_PACKEDTAGS1_H__
 #define __YAFFS_PACKEDTAGS1_H__

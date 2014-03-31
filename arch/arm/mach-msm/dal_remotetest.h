@@ -10,9 +10,6 @@
  * GNU General Public License for more details.
  *
  */
-/*
- * DAL remote test device API.
- */
 
 #include <linux/kernel.h>
 

@@ -35,7 +35,7 @@
 	struct clk *mc_ce_iface_clk = NULL;
 	struct clk *mc_ce_core_clk = NULL;
 	struct clk *mc_ce_bus_clk = NULL;
-#endif /* MC_CRYPTO_CLOCK_MANAGEMENT */
+#endif 
 
 #ifdef MC_PM_RUNTIME
 
@@ -75,7 +75,7 @@ static int mc_suspend_notifier(struct notifier_block *nb,
 	unsigned long event, void *dummy)
 {
 	struct mc_mcp_buffer *mcp = ctx->mcp;
-	/* We have noting to say if MobiCore is not initialized */
+	
 	if (!mcp)
 		return 0;
 
@@ -85,15 +85,7 @@ static int mc_suspend_notifier(struct notifier_block *nb,
 
 	switch (event) {
 	case PM_SUSPEND_PREPARE:
-		/*
-		 * Make sure we have finished all the work otherwise
-		 * we end up in a race condition
-		 */
 		cancel_work_sync(&suspend_work);
-		/*
-		 * We can't go to sleep if MobiCore is not IDLE
-		 * or not Ready to sleep
-		 */
 		dump_sleep_params(&mcp->flags);
 		if (!sleep_ready()) {
 			ctx->mcp->flags.sleep_mode.SleepReq = REQ_TO_SLEEP;
@@ -146,8 +138,6 @@ static int bL_switcher_notifier_handler(struct notifier_block *this,
 		if (!sleep_ready()) {
 			ctx->mcp->flags.sleep_mode.SleepReq = REQ_TO_SLEEP;
 			_nsiq();
-			/* By this time we should be ready for sleep or we are
-			 * in the middle of something important */
 			if (!sleep_ready()) {
 				dump_sleep_params(&mcp->flags);
 				MCDRV_DBG(mcd,
@@ -203,7 +193,7 @@ int mc_pm_free(void)
 	return ret;
 }
 
-#endif /* MC_PM_RUNTIME */
+#endif 
 
 #ifdef MC_CRYPTO_CLOCK_MANAGEMENT
 
@@ -211,14 +201,14 @@ int mc_pm_clock_initialize(void)
 {
 	int ret = 0;
 
-	/* Get core clk */
+	
 	mc_ce_core_clk = clk_get(mcd, "core_clk");
 	if (IS_ERR(mc_ce_core_clk)) {
 		ret = PTR_ERR(mc_ce_core_clk);
 		MCDRV_DBG_ERROR(mcd, "cannot get core clock\n");
 		goto error;
 	}
-	/* Get Interface clk */
+	
 	mc_ce_iface_clk = clk_get(mcd, "iface_clk");
 	if (IS_ERR(mc_ce_iface_clk)) {
 		clk_put(mc_ce_core_clk);
@@ -226,7 +216,7 @@ int mc_pm_clock_initialize(void)
 		MCDRV_DBG_ERROR(mcd, "cannot get iface clock\n");
 		goto error;
 	}
-	/* Get AXI clk */
+	
 	mc_ce_bus_clk = clk_get(mcd, "bus_clk");
 	if (IS_ERR(mc_ce_bus_clk)) {
 		clk_put(mc_ce_iface_clk);
@@ -292,4 +282,4 @@ void mc_pm_clock_disable(void)
 		clk_disable_unprepare(mc_ce_bus_clk);
 }
 
-#endif /* MC_CRYPTO_CLOCK_MANAGEMENT */
+#endif 

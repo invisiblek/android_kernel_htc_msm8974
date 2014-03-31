@@ -10,13 +10,7 @@
  * GNU General Public License for more details.
  */
 
-/*
- * SDIO-Downloader
- *
- * To be used with Qualcomm's SDIO-Client connected to this host.
- */
 
-/* INCLUDES */
 #include <linux/slab.h>
 #include <linux/module.h>
 #include <linux/delay.h>
@@ -34,7 +28,6 @@
 #include <linux/errno.h>
 #include <linux/debugfs.h>
 
-/* DEFINES AND MACROS */
 #define MAX_NUM_DEVICES		1
 #define TTY_SDIO_DEV			"tty_sdio_0"
 #define TTY_SDIO_DEV_TEST		"tty_sdio_test_0"
@@ -74,7 +67,6 @@
 #define PUSH_STRING
 #define SDIO_DLD_OUTGOING_BUFFER_SIZE	(48*1024*MULTIPLE_RATIO)
 
-/* FORWARD DECLARATIONS */
 static int sdio_dld_open(struct tty_struct *tty, struct file *file);
 static void sdio_dld_close(struct tty_struct *tty, struct file *file);
 static int sdio_dld_write_callback(struct tty_struct *tty,
@@ -91,7 +83,6 @@ static ssize_t sdio_dld_debug_info_write(struct file *file,
 static void sdio_dld_tear_down(struct work_struct *work);
 DECLARE_WORK(cleanup, sdio_dld_tear_down);
 
-/* STRUCTURES AND TYPES */
 enum sdio_dld_op_mode {
 	 SDIO_DLD_NO_MODE = 0,
 	 SDIO_DLD_NORMAL_MODE = 1,
@@ -217,7 +208,6 @@ static const struct tty_operations sdio_dloader_tty_ops = {
 	.write_room = sdio_dld_write_room,
 };
 
-/* GLOBAL VARIABLES */
 struct sdio_downloader *sdio_dld;
 struct sdio_dld_global_info sdio_dld_info;
 static char outgoing_data_buffer[SDIO_DLD_OUTGOING_BUFFER_SIZE];
@@ -230,10 +220,6 @@ static unsigned long lock_flags2;
 static atomic_t sdio_dld_in_use = ATOMIC_INIT(0);
 static atomic_t sdio_dld_setup_done = ATOMIC_INIT(0);
 
-/*
- * sdio_op_mode sets the operation mode of the sdio_dloader -
- * it may be in NORMAL_MODE, BOOT_TEST_MODE or AMSS_TEST_MODE
- */
 static int sdio_op_mode = (int)SDIO_DLD_NORMAL_MODE;
 module_param(sdio_op_mode, int, 0);
 
@@ -408,36 +394,36 @@ static void update_gd(int code)
 	gd.reserve30 = 0;
 	gd.reserve31 = 0;
 
-	gd.ptr_array[index].h_w_ptr = SDIO_DLD_DEBUGFS_INIT_VALUE;	/*0*/
-	gd.ptr_array[index].h_r_ptr = SDIO_DLD_DEBUGFS_INIT_VALUE;	/*1*/
-	gd.ptr_array[index].c_u_w_ptr =	SDIO_DLD_DEBUGFS_INIT_VALUE;	/*2*/
-	gd.ptr_array[index].c_u_r_ptr =	SDIO_DLD_DEBUGFS_INIT_VALUE;	/*3*/
-	gd.ptr_array[index].code = SDIO_DLD_DEBUGFS_INIT_VALUE;		/*4*/
-	gd.ptr_array[index].h_has_to_send = SDIO_DLD_DEBUGFS_INIT_VALUE;/*5*/
+	gd.ptr_array[index].h_w_ptr = SDIO_DLD_DEBUGFS_INIT_VALUE;	
+	gd.ptr_array[index].h_r_ptr = SDIO_DLD_DEBUGFS_INIT_VALUE;	
+	gd.ptr_array[index].c_u_w_ptr =	SDIO_DLD_DEBUGFS_INIT_VALUE;	
+	gd.ptr_array[index].c_u_r_ptr =	SDIO_DLD_DEBUGFS_INIT_VALUE;	
+	gd.ptr_array[index].code = SDIO_DLD_DEBUGFS_INIT_VALUE;		
+	gd.ptr_array[index].h_has_to_send = SDIO_DLD_DEBUGFS_INIT_VALUE;
 	gd.ptr_array[index].c_has_to_receive =
-		SDIO_DLD_DEBUGFS_INIT_VALUE;				/*6*/
-	gd.ptr_array[index].min_of = SDIO_DLD_DEBUGFS_INIT_VALUE;	/*7*/
-	gd.ptr_array[index].reserve2 = SDIO_DLD_DEBUGFS_INIT_VALUE;	/*8*/
-	gd.ptr_array[index].tty_count = SDIO_DLD_DEBUGFS_INIT_VALUE;	/*9*/
-	gd.ptr_array[index].write_tty = SDIO_DLD_DEBUGFS_INIT_VALUE;	/*A*/
-	gd.ptr_array[index].write_toio = SDIO_DLD_DEBUGFS_INIT_VALUE;	/*B*/
+		SDIO_DLD_DEBUGFS_INIT_VALUE;				
+	gd.ptr_array[index].min_of = SDIO_DLD_DEBUGFS_INIT_VALUE;	
+	gd.ptr_array[index].reserve2 = SDIO_DLD_DEBUGFS_INIT_VALUE;	
+	gd.ptr_array[index].tty_count = SDIO_DLD_DEBUGFS_INIT_VALUE;	
+	gd.ptr_array[index].write_tty = SDIO_DLD_DEBUGFS_INIT_VALUE;	
+	gd.ptr_array[index].write_toio = SDIO_DLD_DEBUGFS_INIT_VALUE;	
 	gd.ptr_array[index].loop_wait_wake =
-		SDIO_DLD_DEBUGFS_INIT_VALUE;				/*C*/
-	gd.ptr_array[index].cb_wait_wake = SDIO_DLD_DEBUGFS_INIT_VALUE;	/*D*/
-	gd.ptr_array[index].c_d_w_ptr =	SDIO_DLD_DEBUGFS_INIT_VALUE;	/*E*/
-	gd.ptr_array[index].c_d_r_ptr =	SDIO_DLD_DEBUGFS_INIT_VALUE;	/*F*/
+		SDIO_DLD_DEBUGFS_INIT_VALUE;				
+	gd.ptr_array[index].cb_wait_wake = SDIO_DLD_DEBUGFS_INIT_VALUE;	
+	gd.ptr_array[index].c_d_w_ptr =	SDIO_DLD_DEBUGFS_INIT_VALUE;	
+	gd.ptr_array[index].c_d_r_ptr =	SDIO_DLD_DEBUGFS_INIT_VALUE;	
 	gd.ptr_array[index].to_read =
-		SDIO_DLD_DEBUGFS_INIT_VALUE;			/*0x10*/
+		SDIO_DLD_DEBUGFS_INIT_VALUE;			
 	gd.ptr_array[index].push_to_tty =
-		SDIO_DLD_DEBUGFS_INIT_VALUE;			/*0x11*/
+		SDIO_DLD_DEBUGFS_INIT_VALUE;			
 	gd.ptr_array[index].global_tty_send =
-		SDIO_DLD_DEBUGFS_INIT_VALUE;			/*0x12*/
+		SDIO_DLD_DEBUGFS_INIT_VALUE;			
 	gd.ptr_array[index].global_sdio_send =
-		SDIO_DLD_DEBUGFS_INIT_VALUE;			/*0x13*/
+		SDIO_DLD_DEBUGFS_INIT_VALUE;			
 	gd.ptr_array[index].global_tty_received =
-		SDIO_DLD_DEBUGFS_INIT_VALUE;			/*0x14*/
+		SDIO_DLD_DEBUGFS_INIT_VALUE;			
 	gd.ptr_array[index].global_sdio_received =
-		SDIO_DLD_DEBUGFS_INIT_VALUE;			/*0x15*/
+		SDIO_DLD_DEBUGFS_INIT_VALUE;			
 	gd.ptr_array[index].reserve22 = SDIO_DLD_DEBUGFS_INIT_VALUE;
 	gd.ptr_array[index].reserve23 = SDIO_DLD_DEBUGFS_INIT_VALUE;
 	gd.ptr_array[index].reserve24 = SDIO_DLD_DEBUGFS_INIT_VALUE;
@@ -538,7 +524,7 @@ static void update_gd(int code)
 
 static int bootloader_debugfs_init(void)
 {
-	/* /sys/kernel/debug/bootloader there will be dld_arr file */
+	
 	root = debugfs_create_dir("bootloader", NULL);
 	if (!root) {
 		pr_info(MODULE_NAME ": %s - creating root dir "
@@ -559,10 +545,6 @@ static int bootloader_debugfs_init(void)
 	return 0;
 }
 
-/*
-* for triggering the sdio_dld info use:
-* echo 1 > /sys/kernel/debug/sdio_al_dld/sdio_al_dloader_info
-*/
 static int sdio_dld_debug_init(void)
 {
 	sdio_dld_debug.sdio_dld_debug_root =
@@ -605,12 +587,12 @@ static ssize_t sdio_dld_debug_info_write(struct file *file,
 	sdio_dld_print_info();
 	return count;
 }
-#endif /* CONFIG_DEBUG_FS */
+#endif 
 
 static void sdio_dld_print_info(void)
 {
 
-	sdio_dld_info.end_time = get_jiffies_64(); /* read the current time */
+	sdio_dld_info.end_time = get_jiffies_64(); 
 	sdio_dld_info.delta_jiffies =
 		sdio_dld_info.end_time - sdio_dld_info.start_time;
 	sdio_dld_info.time_msec = jiffies_to_msecs(sdio_dld_info.delta_jiffies);
@@ -685,14 +667,6 @@ static void sdio_dld_print_info(void)
 	pr_info(MODULE_NAME ": %s, FLASHLESS BOOT - END DEBUG INFO", __func__);
 }
 
-/**
-  * sdio_dld_set_op_mode
-  * sets the op_mode and the name of the op_mode. Also, in case
-  * it's invalid mode sets op_mode to SDIO_DLD_NORMAL_MODE
-  *
-  * @op_mode: the operation mode to be set
-  * @return NONE
-  */
 static void sdio_dld_set_op_mode(enum sdio_dld_op_mode op_mode)
 {
 	sdio_dld->op_mode = op_mode;
@@ -729,13 +703,6 @@ static void sdio_dld_set_op_mode(enum sdio_dld_op_mode op_mode)
 	}
 }
 
-/**
-  * sdio_dld_allocate_local_buffers
-  * allocates local outgoing and incoming buffers and also sets
-  * threshold for outgoing data.
-  *
-  * @return 0 on success or negative value on error.
-  */
 static int sdio_dld_allocate_local_buffers(void)
 {
 	struct sdioc_reg_chunk *reg_str = &sdio_dld->sdio_dloader_data.
@@ -771,32 +738,17 @@ static int sdio_dld_allocate_local_buffers(void)
 		return -EINVAL;
 	}
 
-	/* keep sdio_dld_info up to date */
+	
 	sdio_dld_info.host_outgoing_buffer_size = outgoing->buffer_size;
 
 	return 0;
 }
 
-/**
-  * sdio_dld_dealloc_local_buffers frees incoming and outgoing
-  * buffers.
-  *
-  * @return None.
-  */
 static void sdio_dld_dealloc_local_buffers(void)
 {
 	kfree((void *)sdio_dld->sdio_dloader_data.incoming_data.data);
 }
 
-/**
-  * mailbox_to_seq_chunk_read_cfg
-  * reads 4 configuration registers of mailbox from str_func, as
-  * a sequentail chunk in memory, and updates global struct
-  * accordingly.
-  *
-  * @str_func: a pointer to func struct.
-  * @return 0 on success or negative value on error.
-  */
 static int mailbox_to_seq_chunk_read_cfg(struct sdio_func *str_func)
 {
 	struct sdioc_reg_sequential_chunk_cfg seq_chunk;
@@ -811,7 +763,7 @@ static int mailbox_to_seq_chunk_read_cfg(struct sdio_func *str_func)
 
 	sdio_claim_host(str_func);
 
-	/* reading SDIOC_MAILBOX_SIZE bytes from SDIOC_MAILBOX_ADDRESS */
+	
 	status = sdio_memcpy_fromio(str_func,
 				    (void *)&seq_chunk,
 				    SDIOC_MAILBOX_ADDRESS,
@@ -829,7 +781,7 @@ static int mailbox_to_seq_chunk_read_cfg(struct sdio_func *str_func)
 	reg->dl_buff_size.reg_val = seq_chunk.dl_buff_size;
 	reg->ul_buff_size.reg_val = seq_chunk.ul_buff_size;
 
-	/* keep sdio_dld_info up to date */
+	
 	sdio_dld_info.cl_dl_buffer_size = seq_chunk.dl_buff_size;
 	sdio_dld_info.cl_up_buffer_size = seq_chunk.ul_buff_size;
 	sdio_dld_info.cl_dl_buffer_address = seq_chunk.dl_buff_address;
@@ -838,15 +790,6 @@ static int mailbox_to_seq_chunk_read_cfg(struct sdio_func *str_func)
 	return status;
 }
 
-/**
-  * mailbox_to_seq_chunk_read_ptrs
-  * reads 4 pointers registers of mailbox from str_func, as a
-  * sequentail chunk in memory, and updates global struct
-  * accordingly.
-  *
-  * @str_func: a pointer to func struct.
-  * @return 0 on success or negative value on error.
-  */
 static int mailbox_to_seq_chunk_read_ptrs(struct sdio_func *str_func)
 {
 	struct sdioc_reg_sequential_chunk_ptrs seq_chunk;
@@ -870,7 +813,7 @@ static int mailbox_to_seq_chunk_read_ptrs(struct sdio_func *str_func)
 
 	sdio_claim_host(str_func);
 
-	/* reading SDIOC_MAILBOX_SIZE bytes from SDIOC_MAILBOX_ADDRESS */
+	
 	status = sdio_memcpy_fromio(str_func,
 				    (void *)&seq_chunk,
 				    SDIOC_PTRS_OFFSET,
@@ -888,14 +831,14 @@ static int mailbox_to_seq_chunk_read_ptrs(struct sdio_func *str_func)
 	reg->up_rd_ptr.reg_val = seq_chunk.up_rd_ptr;
 	reg->up_wr_ptr.reg_val = seq_chunk.up_wr_ptr;
 
-	/* keeping sdio_dld_info up to date */
+	
 	sdio_dld_info.cl_dl_rd_ptr = seq_chunk.dl_rd_ptr;
 	sdio_dld_info.cl_dl_wr_ptr = seq_chunk.dl_wr_ptr;
 	sdio_dld_info.cl_up_rd_ptr = seq_chunk.up_rd_ptr;
 	sdio_dld_info.cl_up_wr_ptr = seq_chunk.up_wr_ptr;
 
 
-	/* DEBUG - if there was a change in value */
+	
 	if ((offset_write_p != outgoing->offset_write_p) ||
 	    (offset_read_p != outgoing->offset_read_p) ||
 	    (up_wr_ptr != reg->up_wr_ptr.reg_val) ||
@@ -918,7 +861,7 @@ static int mailbox_to_seq_chunk_read_ptrs(struct sdio_func *str_func)
 #ifdef CONFIG_DEBUG_FS
 		update_gd(SDIO_DLD_DEBUGFS_CASE_1_CODE);
 #endif
-		/* update static variables */
+		
 		offset_write_p = outgoing->offset_write_p;
 		offset_read_p =	outgoing->offset_read_p;
 		up_wr_ptr = reg->up_wr_ptr.reg_val;
@@ -931,13 +874,6 @@ static int mailbox_to_seq_chunk_read_ptrs(struct sdio_func *str_func)
 	return status;
 }
 
-/**
-  * sdio_dld_init_func
-  * enables the sdio func, and sets the func block size.
-  *
-  * @str_func: a pointer to func struct.
-  * @return 0 on success or negative value on error.
-  */
 static int sdio_dld_init_func(struct sdio_func *str_func)
 {
 	int status1 = 0;
@@ -977,15 +913,6 @@ static int sdio_dld_init_func(struct sdio_func *str_func)
 	return 0;
 }
 
-/**
-  * sdio_dld_allocate_buffers
-  * initializes the sdio func, and then reads the mailbox, in
-  * order to allocate incoming and outgoing buffers according to
-  * the size that was read from the mailbox.
-  *
-  * @str_func: a pointer to func struct.
-  * @return 0 on success or negative value on error.
-  */
 static int sdio_dld_allocate_buffers(struct sdio_func *str_func)
 {
 	int status = 0;
@@ -1014,12 +941,6 @@ static int sdio_dld_allocate_buffers(struct sdio_func *str_func)
 	return 0;
 }
 
-/**
-  * sdio_dld_create_thread
-  * creates thread and wakes it up.
-  *
-  * @return 0 on success or negative value on error.
-  */
 static int sdio_dld_create_thread(void)
 {
 	sdio_dld->dld_main_thread.task_name = SDIO_DL_MAIN_THREAD_NAME;
@@ -1038,14 +959,6 @@ static int sdio_dld_create_thread(void)
 	return 0;
 }
 
-/**
-  * start_timer
-  * sets the timer and starts.
-  *
-  * @timer: the timer to configure and add
-  * @ms: the ms until it expires
-  * @return None.
-  */
 static void start_timer(struct timer_list *timer, unsigned int ms)
 {
 	if ((ms == 0) || (timer == NULL)) {
@@ -1057,15 +970,6 @@ static void start_timer(struct timer_list *timer, unsigned int ms)
 	}
 }
 
-/**
-  * sdio_dld_timer_handler
-  * this is the timer handler. whenever it is invoked, it wakes
-  * up the main loop task, and the write callback, and starts
-  * the timer again.
-  *
-  * @data: a pointer to the tty device driver structure.
-  * @return None.
-  */
 
 static void sdio_dld_timer_handler(unsigned long data)
 {
@@ -1083,13 +987,6 @@ static void sdio_dld_timer_handler(unsigned long data)
 	start_timer(&sdio_dld->timer, sdio_dld->poll_ms);
 }
 
-/**
-  * sdio_dld_push_timer_handler
-  * this is a timer handler of the push_timer.
-  *
-  * @data: a pointer to the tty device driver structure.
-  * @return None.
-  */
 static void sdio_dld_push_timer_handler(unsigned long data)
 {
 	pr_err(MODULE_NAME " %s - Push Timer Expired... Trying to "
@@ -1097,16 +994,6 @@ static void sdio_dld_push_timer_handler(unsigned long data)
 		__func__, sdio_dld->push_timer_ms);
 }
 
-/**
-  * sdio_dld_open
-  * this is the open callback of the tty driver.
-  * it initializes the sdio func, allocates the buffers, and
-  * creates the main thread.
-  *
-  * @tty: a pointer to the tty struct.
-  * @file: file descriptor.
-  * @return 0 on success or negative value on error.
-  */
 static int sdio_dld_open(struct tty_struct *tty, struct file *file)
 {
 	int status = 0;
@@ -1125,7 +1012,7 @@ static int sdio_dld_open(struct tty_struct *tty, struct file *file)
 
 	pr_info(MODULE_NAME ": %s, TTY DEVICE FOR FLASHLESS BOOT OPENED\n",
 	       __func__);
-	sdio_dld_info.start_time = get_jiffies_64(); /* read the current time */
+	sdio_dld_info.start_time = get_jiffies_64(); 
 
 	if (!tty) {
 		pr_err(MODULE_NAME ": %s - param ""tty"" is NULL.\n",
@@ -1150,13 +1037,13 @@ static int sdio_dld_open(struct tty_struct *tty, struct file *file)
 		return status;
 	}
 
-	/* init waiting event of the write callback */
+	
 	init_waitqueue_head(&sdio_dld->write_callback_event.wait_event);
 
-	/* init waiting event of the main loop */
+	
 	init_waitqueue_head(&sdio_dld->main_loop_event.wait_event);
 
-	/* configure and init the timer */
+	
 	sdio_dld->poll_ms = TIMER_DURATION;
 	init_timer(&sdio_dld->timer);
 	sdio_dld->timer.data = (unsigned long) sdio_dld;
@@ -1182,22 +1069,11 @@ static int sdio_dld_open(struct tty_struct *tty, struct file *file)
 	return 0;
 }
 
-/**
-  * sdio_dld_close
-  * this is the close callback of the tty driver. it requests
-  * the main thread to exit, and waits for notification of it.
-  * it also de-allocates the buffers, and unregisters the tty
-  * driver and device.
-  *
-  * @tty: a pointer to the tty struct.
-  * @file: file descriptor.
-  * @return None.
-  */
 static void sdio_dld_close(struct tty_struct *tty, struct file *file)
 {
 	struct sdioc_reg_chunk *reg = &sdio_dld->sdio_dloader_data.sdioc_reg;
 
-	/* informing the SDIOC that it can exit boot phase */
+	
 	sdio_dld->sdio_dloader_data.sdioc_reg.good_to_exit_ptr.reg_val =
 		SDIOC_EXIT_CODE;
 
@@ -1225,8 +1101,6 @@ static void sdio_dld_close(struct tty_struct *tty, struct file *file)
 	gd.global_bytes_pushed = sdio_dld_info.global_bytes_push_tty;
 #endif
 
-	/* saving register values before deallocating sdio_dld
-	   in order to use it in sdio_dld_print_info() through shell command */
 	sdio_dld_info.cl_dl_rd_ptr = reg->dl_rd_ptr.reg_val;
 	sdio_dld_info.cl_dl_wr_ptr = reg->dl_wr_ptr.reg_val;
 	sdio_dld_info.cl_up_rd_ptr = reg->up_rd_ptr.reg_val;
@@ -1308,7 +1182,7 @@ static int writing_size_to_buf(char *dest,
 
 	for (actually_written = 0 ;
 	      actually_written < size_to_write ; ++actually_written) {
-		/* checking if buffer is full */
+		
 		if (((size_to_add + 1) % dest_size) == dest_rd_ptr) {
 			*dest_wr_ptr = size_to_add;
 			return actually_written;
@@ -1323,20 +1197,6 @@ static int writing_size_to_buf(char *dest,
 	return actually_written;
 }
 
-/**
-  * sdioc_bytes_till_end_of_buffer - this routine calculates how many bytes are
-  * empty/in use. if calculation requires rap around - it will ignore the rap
-  * around and will do the calculation untill the end of the buffer
-  *
-  * @write_ptr: writing pointer.
-  * @read_ptr: reading pointer.
-  * @total_size: buffer size.
-  * @free_bytes: return value-how many free bytes.
-  * @bytes_in_use: return value-how many bytes in use.
-  * @return 0 on success or negative value on error.
-  *
-  * buffer is treated as a cyclic buffer.
-  */
 static int sdioc_bytes_till_end_of_buffer(int write_ptr,
 					  int read_ptr,
 					  int total_size,
@@ -1369,21 +1229,6 @@ static int sdioc_bytes_till_end_of_buffer(int write_ptr,
 	return  0;
 }
 
-/**
-  * sdioc_bytes_free_in_buffer
-  * this routine calculates how many bytes are free in a buffer
-  * and how many are in use, according to its reading and
-  * writing pointer offsets.
-  *
-  * @write_ptr: writing pointer.
-  * @read_ptr: reading pointer.
-  * @total_size: buffer size.
-  * @free_bytes: return value-how many free bytes in buffer.
-  * @bytes_in_use: return value-how many bytes in use in buffer.
-  * @return 0 on success or negative value on error.
-  *
-  * buffer is treated as a cyclic buffer.
-  */
 static int sdioc_bytes_free_in_buffer(int write_ptr,
 				      int read_ptr,
 				      int total_size,
@@ -1402,7 +1247,7 @@ static int sdioc_bytes_free_in_buffer(int write_ptr,
 		return -EINVAL;
 	}
 
-	/* if pointers equel - buffers are empty. nothing to read/write */
+	
 
 	if (write_ptr >= read_ptr)
 		*bytes_in_use = write_ptr - read_ptr;
@@ -1414,15 +1259,6 @@ static int sdioc_bytes_free_in_buffer(int write_ptr,
 	return 0;
 }
 
-/*
-* sdio_dld_write_room
-*
-* This is the write_room function of the tty driver.
-*
-* @tty: pointer to tty struct.
-* @return free bytes for write.
-*
-*/
 static int sdio_dld_write_room(struct tty_struct *tty)
 {
 	return sdio_dld->sdio_dloader_data.outgoing_data.buffer_size;
@@ -1469,7 +1305,7 @@ static int sdio_dld_write_callback(struct tty_struct *tty,
 	pr_debug(MODULE_NAME ": %s - WRITE CALLBACK size to write to outgoing"
 		 " buffer %d\n", __func__, count);
 
-	/* as long as there is something to write to outgoing buffer */
+	
 	do {
 		int bytes_to_write = 0;
 		status = sdioc_bytes_free_in_buffer(
@@ -1486,20 +1322,11 @@ static int sdio_dld_write_callback(struct tty_struct *tty,
 			return status;
 		}
 
-		/*
-		 * if there is free room in outgoing buffer
-		 * lock mutex and request trigger notification from the main
-		 * task. unlock mutex, and wait for sinal
-		 */
 		if (dst_free_bytes > 0) {
 			write_retry = 0;
-			/*
-			 * if there is more data to write to outgoing buffer
-			 * than it can receive, wait for signal from main task
-			 */
 			if (pending_to_write > dst_free_bytes) {
 
-				/* sampling updated dst_free_bytes */
+				
 				status = sdioc_bytes_free_in_buffer(
 				outgoing->offset_write_p,
 				outgoing->offset_read_p,
@@ -1525,7 +1352,7 @@ static int sdio_dld_write_callback(struct tty_struct *tty,
 						    outgoing->offset_read_p,
 						    bytes_to_write);
 
-			/* keeping sdio_dld_info up to date */
+			
 			sdio_dld_info.host_write_ptr =
 				sdio_dld->sdio_dloader_data.
 					    outgoing_data.offset_write_p;
@@ -1543,10 +1370,6 @@ static int sdio_dld_write_callback(struct tty_struct *tty,
 			}
 			spin_unlock_irqrestore(&lock2, lock_flags2);
 
-			/*
-			 * although outgoing buffer has enough room, writing
-			 * failed
-			 */
 			if (bytes_written != bytes_to_write) {
 				pr_err(MODULE_NAME ": %s - couldn't write "
 				       "%d bytes to " "outgoing buffer."
@@ -1619,20 +1442,6 @@ static int sdio_dld_write_callback(struct tty_struct *tty,
 	return total_written;
 }
 
-/**
-  * sdio_memcpy_fromio_wrapper -
-  * reads from sdioc, and updats the sdioc registers according
-  * to how many bytes were actually read.
-  *
-  * @str_func: a pointer to func struct.
-  * @client_rd_ptr: sdioc value of downlink read ptr.
-  * @client_wr_ptr: sdioc value of downlink write ptr.
-  * @buffer_to_store: buffer to store incoming data.
-  * @address_to_read: address to start reading from in sdioc.
-  * @size_to_read: size of bytes to read.
-  * @client_buffer_size: sdioc downlink buffer size.
-  * @return 0 on success or negative value on error.
-  */
 static int sdio_memcpy_fromio_wrapper(struct sdio_func *str_func,
 				      unsigned int client_rd_ptr,
 				      unsigned int client_wr_ptr,
@@ -1682,11 +1491,11 @@ static int sdio_memcpy_fromio_wrapper(struct sdio_func *str_func,
 		return status;
 	}
 
-	/* updating an offset according to cyclic buffer size */
+	
 	reg_str->dl_rd_ptr.reg_val =
 		(reg_str->dl_rd_ptr.reg_val + size_to_read) %
 		client_buffer_size;
-	/* keeping sdio_dld_info up to date */
+	
 	sdio_dld_info.cl_dl_rd_ptr = reg_str->dl_rd_ptr.reg_val;
 
 	status = sdio_memcpy_toio(str_func,
@@ -1704,18 +1513,6 @@ static int sdio_memcpy_fromio_wrapper(struct sdio_func *str_func,
 	return status;
 }
 
-/**
-  * sdio_memcpy_toio_wrapper
-  * writes to sdioc, and updats the sdioc registers according
-  * to how many bytes were actually read.
-  *
-  * @str_func: a pointer to func struct.
-  * @client_wr_ptr: sdioc downlink write ptr.
-  * @h_read_ptr: host incoming read ptrs
-  * @buf_write_from: buffer to write from.
-  * @bytes_to_write: number of bytes to write.
-  * @return 0 on success or negative value on error.
-  */
 static int sdio_memcpy_toio_wrapper(struct sdio_func *str_func,
 				    unsigned int client_wr_ptr,
 				    unsigned int h_read_ptr,
@@ -1763,23 +1560,18 @@ static int sdio_memcpy_toio_wrapper(struct sdio_func *str_func,
 	sdio_dld_info.global_bytes_write_toio += bytes_to_write;
 	outgoing->num_of_bytes_in_use -= bytes_to_write;
 
-	/*
-	 * if writing to client succeeded, then
-	 * 1. update the client up_wr_ptr
-	 * 2. update the host outgoing rd ptr
-	 **/
 	reg_str->up_wr_ptr.reg_val =
 		((reg_str->up_wr_ptr.reg_val + bytes_to_write) %
 		 reg_str->ul_buff_size.reg_val);
 
-	/* keeping sdio_dld_info up to date */
+	
 	sdio_dld_info.cl_up_wr_ptr = reg_str->up_wr_ptr.reg_val;
 
 	outgoing->offset_read_p =
 		((outgoing->offset_read_p + bytes_to_write) %
 		  outgoing->buffer_size);
 
-	/* keeping sdio_dld_info up to date*/
+	
 	sdio_dld_info.host_read_ptr = outgoing->offset_read_p;
 
 #ifdef CONFIG_DEBUG_FS
@@ -1802,17 +1594,6 @@ static int sdio_memcpy_toio_wrapper(struct sdio_func *str_func,
 	return status;
 }
 
-/**
-  * sdio_dld_read
-  * reads from sdioc
-  *
-  * @client_rd_ptr: sdioc downlink read ptr.
-  * @client_wr_ptr: sdioc downlink write ptr.
-  * @reg_str: sdioc register shadowing struct.
-  * @str_func: a pointer to func struct.
-  * @bytes_read:how many bytes read.
-  * @return 0 on success or negative value on error.
-  */
 static int sdio_dld_read(unsigned int client_rd_ptr,
 			 unsigned int client_wr_ptr,
 			 struct sdioc_reg_chunk *reg_str,
@@ -1840,7 +1621,7 @@ static int sdio_dld_read(unsigned int client_rd_ptr,
 		return -EINVAL;
 	}
 
-	/* there is data to read in ONE chunk */
+	
 	if (client_wr_ptr > client_rd_ptr) {
 		status = sdio_memcpy_fromio_wrapper(
 			str_func,
@@ -1869,12 +1650,12 @@ static int sdio_dld_read(unsigned int client_rd_ptr,
 #endif
 	}
 
-	/* there is data to read in TWO chunks */
+	
 	else {
 		int dl_buf_size = reg_str->dl_buff_size.reg_val;
 		int tail_size = dl_buf_size - client_rd_ptr;
 
-		/* reading chunk#1: from rd_ptr to the end of the buffer */
+		
 		status = sdio_memcpy_fromio_wrapper(
 			str_func,
 			client_rd_ptr,
@@ -1900,7 +1681,7 @@ static int sdio_dld_read(unsigned int client_rd_ptr,
 			update_gd(SDIO_DLD_DEBUGFS_CASE_11_CODE);
 #endif
 
-		/* reading chunk#2: reading from beginning buffer */
+		
 		status = sdio_memcpy_fromio_wrapper(
 			str_func,
 			client_rd_ptr,
@@ -1929,15 +1710,6 @@ static int sdio_dld_read(unsigned int client_rd_ptr,
 	return 0;
 }
 
-/**
-  * sdio_dld_main_task
-  * sdio downloader main task. reads mailboxf checks if there is
-  * anything to read, checks if host has anything to
-  * write.
-  *
-  * @card: a pointer to mmc_card.
-  * @return 0 on success or negative value on error.
-  */
 static int sdio_dld_main_task(void *card)
 {
 	int status = 0;
@@ -1978,13 +1750,13 @@ static int sdio_dld_main_task(void *card)
 	}
 
 	while (true) {
-		/* client pointers for both buffers */
+		
 		int client_ul_wr_ptr = 0;
 		int client_ul_rd_ptr = 0;
 		int client_dl_wr_ptr = 0;
 		int client_dl_rd_ptr = 0;
 
-		/* host pointer for outgoing buffer */
+		
 		int h_out_wr_ptr = 0;
 		int h_out_rd_ptr = 0;
 
@@ -1994,15 +1766,10 @@ static int sdio_dld_main_task(void *card)
 		int need_to_write = 0;
 		int need_to_read = 0;
 
-		/*
-		 * forever, checking for signal to die, then read MailBox.
-		 * if nothing to read or nothing to write to client, sleep,
-		 * and again read MailBox
-		 */
 		do {
 			int dummy = 0;
 
-			/*  checking if a signal to die was sent */
+			
 			if (atomic_read(&task->please_close) == 1) {
 
 				pr_debug(MODULE_NAME ": %s - 0x%x was written "
@@ -2010,7 +1777,7 @@ static int sdio_dld_main_task(void *card)
 
 				sdio_claim_host(str_func);
 
-				/* returned value is not checked on purpose */
+				
 				sdio_memcpy_toio(
 					str_func,
 					reg_str->good_to_exit_ptr.reg_offset,
@@ -2034,7 +1801,7 @@ static int sdio_dld_main_task(void *card)
 				return status;
 			}
 
-			/* calculate how many bytes the host has send */
+			
 			h_out_wr_ptr = outgoing->offset_write_p;
 			h_out_rd_ptr = outgoing->offset_read_p;
 
@@ -2052,17 +1819,13 @@ static int sdio_dld_main_task(void *card)
 				return status;
 			}
 
-			/* is there something to read from client */
+			
 			client_dl_wr_ptr = reg_str->dl_wr_ptr.reg_val;
 			client_dl_rd_ptr = reg_str->dl_rd_ptr.reg_val;
 
 			if (client_dl_rd_ptr != client_dl_wr_ptr)
 				need_to_read = 1;
 
-			/*
-			 *  calculate how many bytes the client can receive
-			 *  from host
-			 */
 			client_ul_wr_ptr = reg_str->up_wr_ptr.reg_val;
 			client_ul_rd_ptr = reg_str->up_rd_ptr.reg_val;
 
@@ -2080,7 +1843,7 @@ static int sdio_dld_main_task(void *card)
 				return status;
 			}
 
-			/* if host has anything to write */
+			
 			if (h_bytes_rdy_wr > 0)
 				need_to_write = 1;
 
@@ -2107,7 +1870,7 @@ static int sdio_dld_main_task(void *card)
 
 		} while (1);
 
-		/* CHECK IF THERE IS ANYTHING TO READ IN CLIENT */
+		
 		if (need_to_read) {
 #ifdef PUSH_STRING
 			int num_push = 0;
@@ -2169,7 +1932,7 @@ static int sdio_dld_main_task(void *card)
 			}
 
 			pr_debug(MODULE_NAME ": %s - JUST READ\n", __func__);
-#endif /*PUSH_STRING*/
+#endif 
 			sdio_dld_info.global_bytes_push_tty +=
 				incoming->num_of_bytes_in_use;
 #ifdef CONFIG_DEBUG_FS
@@ -2180,7 +1943,7 @@ static int sdio_dld_main_task(void *card)
 			tty_flip_buffer_push(tty);
 		}
 
-		/* CHECK IF THERE IS ANYTHING TO WRITE IN HOST AND HOW MUCH */
+		
 		if (need_to_write) {
 			int dummy = 0;
 
@@ -2188,10 +1951,6 @@ static int sdio_dld_main_task(void *card)
 				int bytes_to_write = min(c_bytes_rdy_rcve,
 							 h_bytes_rdy_wr);
 
-				/*
-				 * in case nothing to send or no room to
-				 * receive
-				 */
 				if (bytes_to_write == 0)
 					break;
 
@@ -2199,13 +1958,6 @@ static int sdio_dld_main_task(void *card)
 				    (client_ul_rd_ptr != client_ul_wr_ptr))
 					break;
 
-				/*
-				 * if client_rd_ptr points to start, but there
-				 * is data to read wait until WRITE_TILL_END
-				 * before writing a chunk of data, to avoid
-				 * writing until (BUF_SIZE - 1), because it will
-				 * yield an extra write of "1" bytes
-				 */
 				if (client_ul_rd_ptr == 0 &&
 				    (client_ul_rd_ptr != client_ul_wr_ptr) &&
 				    retries < WRITE_TILL_END_RETRIES) {
@@ -2285,7 +2037,7 @@ static int sdio_dld_main_task(void *card)
 					&c_bytes_rdy_rcve,
 					&dummy);
 
-				/* calculate how many bytes host has to send */
+				
 				h_out_wr_ptr = outgoing->offset_write_p;
 				h_out_rd_ptr = outgoing->offset_read_p;
 
@@ -2302,13 +2054,6 @@ static int sdio_dld_main_task(void *card)
 	return 0;
 }
 
-/**
-  * sdio_dld_init_global
-  * initialization of sdio_dld global struct
-  *
-  * @card: a pointer to mmc_card.
-  * @return 0 on success or negative value on error.
-  */
 static int sdio_dld_init_global(struct mmc_card *card,
 				int(*done)(void))
 {
@@ -2362,19 +2107,6 @@ static int sdio_dld_init_global(struct mmc_card *card,
 	return 0;
 }
 
-/**
- * sdio_downloader_setup
- * initializes the TTY driver
- *
- * @card: a pointer to mmc_card.
- * @num_of_devices: number of devices.
- * @channel_number: channel number.
- * @return 0 on success or negative value on error.
- *
- * The TTY stack needs to know in advance how many devices it should
- * plan to manage. Use this call to set up the ports that will
- * be exported through SDIO.
- */
 int sdio_downloader_setup(struct mmc_card *card,
 			  unsigned int num_of_devices,
 			  int channel_number,
@@ -2389,11 +2121,6 @@ int sdio_downloader_setup(struct mmc_card *card,
 	if (atomic_read(&sdio_dld_in_use) == 1)
 		return -EBUSY;
 
-	/*
-	 * If the setup is already complete tear down the existing
-	 * one and reinitialize. This might happen during modem restarts
-	 * in boot phase.
-	 */
 	if (atomic_read(&sdio_dld_setup_done) == 1)
 		sdio_dld_tear_down(NULL);
 
@@ -2424,7 +2151,7 @@ int sdio_downloader_setup(struct mmc_card *card,
 
 #ifdef CONFIG_DEBUG_FS
 	bootloader_debugfs_init();
-#endif /* CONFIG_DEBUG_FS */
+#endif 
 
 	status = sdio_dld_init_global(card, done);
 
@@ -2447,7 +2174,7 @@ int sdio_downloader_setup(struct mmc_card *card,
 
 	sdio_dld_set_op_mode((enum sdio_dld_op_mode)sdio_op_mode);
 
-	/* according to op_mode, a different tty device is created */
+	
 	if (sdio_dld->op_mode == SDIO_DLD_BOOT_TEST_MODE)
 		sdio_dld->tty_drv->name = TTY_SDIO_DEV_TEST;
 	else
@@ -2456,13 +2183,13 @@ int sdio_downloader_setup(struct mmc_card *card,
 	sdio_dld->tty_drv->owner = THIS_MODULE;
 	sdio_dld->tty_drv->driver_name = "SDIO_Dloader";
 
-	/* uses dynamically assigned dev_t values */
+	
 	sdio_dld->tty_drv->type = TTY_DRIVER_TYPE_SERIAL;
 	sdio_dld->tty_drv->subtype = SERIAL_TYPE_NORMAL;
 	sdio_dld->tty_drv->flags = TTY_DRIVER_REAL_RAW | TTY_DRIVER_DYNAMIC_DEV
 				| TTY_DRIVER_RESET_TERMIOS;
 
-	/* initializing the tty driver */
+	
 	sdio_dld->tty_drv->init_termios = tty_std_termios;
 	sdio_dld->tty_drv->init_termios.c_cflag =
 		B4800 | CS8 | CREAD | HUPCL | CLOCAL;
@@ -2509,10 +2236,6 @@ int sdio_downloader_setup(struct mmc_card *card,
 
 	sdio_claim_host(str_func);
 
-	/*
-	 * notifing the client by writing what mode we are by writing
-	 * to a special register
-	 */
 	status = sdio_memcpy_toio(str_func,
 				  SDIOC_OP_MODE_PTR,
 				  (void *)&sdio_dld->op_mode,

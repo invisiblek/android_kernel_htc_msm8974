@@ -38,6 +38,22 @@ static int debug_mask = ANDROID_ALARM_PRINT_ERROR | \
 			ANDROID_ALARM_PRINT_INIT_STATUS;
 module_param_named(debug_mask, debug_mask, int, S_IRUGO | S_IWUSR | S_IWGRP);
 
+#ifdef CONFIG_HTC_OFFMODE_ALARM
+#define OFFALARM_SIZE   (10)
+#define OFFALARM_SNOOZE_SIZE    (10)
+
+static int offalarm_size = OFFALARM_SIZE;
+static int offalarm_snooze_size = OFFALARM_SNOOZE_SIZE;
+
+static int offalarm[OFFALARM_SIZE];
+static int offalarm_snooze[OFFALARM_SNOOZE_SIZE];
+module_param_array_named(offalarm, offalarm, uint, &offalarm_size,
+        S_IRUGO | S_IWUSR);
+module_param_array_named(offalarm_snooze, offalarm_snooze, uint, &offalarm_snooze_size,
+        S_IRUGO | S_IWUSR);
+#endif
+
+
 #define pr_alarm(debug_level_mask, args...) \
 	do { \
 		if (debug_mask & ANDROID_ALARM_PRINT_##debug_level_mask) { \
@@ -49,8 +65,7 @@ module_param_named(debug_mask, debug_mask, int, S_IRUGO | S_IWUSR | S_IWGRP);
 	ANDROID_ALARM_RTC_WAKEUP_MASK | \
 	ANDROID_ALARM_ELAPSED_REALTIME_WAKEUP_MASK)
 
-/* support old usespace code */
-#define ANDROID_ALARM_SET_OLD               _IOW('a', 2, time_t) /* set alarm */
+#define ANDROID_ALARM_SET_OLD               _IOW('a', 2, time_t) 
 #define ANDROID_ALARM_SET_AND_WAIT_OLD      _IOW('a', 3, time_t)
 
 struct alarm_queue {
@@ -76,6 +91,10 @@ void set_power_on_alarm(long secs)
 	power_on_alarm = secs;
 }
 
+
+#ifdef CONFIG_HTC_OFFMODE_ALARM
+int htc_is_offalarm_enabled(void);
+#endif
 
 static void update_timer_locked(struct alarm_queue *base, bool head_removed)
 {
@@ -136,10 +155,6 @@ static void alarm_enqueue_locked(struct alarm *alarm)
 	while (*link) {
 		parent = *link;
 		entry = rb_entry(parent, struct alarm, node);
-		/*
-		* We dont care about collisions. Nodes with
-		* the same expiry time stay together.
-		*/
 		if (alarm->expires.tv64 < entry->expires.tv64) {
 			link = &(*link)->rb_left;
 		} else {
@@ -156,12 +171,6 @@ static void alarm_enqueue_locked(struct alarm *alarm)
 	rb_insert_color(&alarm->node, &base->alarms);
 }
 
-/**
- * alarm_init - initialize an alarm
- * @alarm:	the alarm to be initialized
- * @type:	the alarm type to be used
- * @function:	alarm callback function
- */
 void alarm_init(struct alarm *alarm,
 	enum android_alarm_type type, void (*function)(struct alarm *))
 {
@@ -173,12 +182,6 @@ void alarm_init(struct alarm *alarm,
 }
 
 
-/**
- * alarm_start_range - (re)start an alarm
- * @alarm:	the alarm to be added
- * @start:	earliest expiry time
- * @end:	expiry time
- */
 void alarm_start_range(struct alarm *alarm, ktime_t start, ktime_t end)
 {
 	unsigned long flags;
@@ -190,16 +193,6 @@ void alarm_start_range(struct alarm *alarm, ktime_t start, ktime_t end)
 	spin_unlock_irqrestore(&alarm_slock, flags);
 }
 
-/**
- * alarm_try_to_cancel - try to deactivate an alarm
- * @alarm:	alarm to stop
- *
- * Returns:
- *  0 when the alarm was not active
- *  1 when the alarm was active
- * -1 when the alarm may currently be excuting the callback function and
- *    cannot be stopped (it may also be inactive)
- */
 int alarm_try_to_cancel(struct alarm *alarm)
 {
 	struct alarm_queue *base = &alarms[alarm->type];
@@ -230,14 +223,6 @@ int alarm_try_to_cancel(struct alarm *alarm)
 	return ret;
 }
 
-/**
- * alarm_cancel - cancel an alarm and wait for the handler to finish.
- * @alarm:	the alarm to be cancelled
- *
- * Returns:
- *  0 when the alarm was not active
- *  1 when the alarm was active
- */
 int alarm_cancel(struct alarm *alarm)
 {
 	for (;;) {
@@ -248,10 +233,6 @@ int alarm_cancel(struct alarm *alarm)
 	}
 }
 
-/**
- * alarm_set_rtc - set the kernel and rtc walltime
- * @new_time:	timespec value containing the new time
- */
 int alarm_set_rtc(struct timespec new_time)
 {
 	int i;
@@ -278,13 +259,13 @@ int alarm_set_rtc(struct timespec new_time)
 		alarms[i].stopped = true;
 		alarms[i].stopped_time = timespec_to_ktime(tmp_time);
 	}
+	spin_unlock_irqrestore(&alarm_slock, flags);
+	ret = do_settimeofday(&new_time);
+	spin_lock_irqsave(&alarm_slock, flags);
 	alarms[ANDROID_ALARM_ELAPSED_REALTIME_WAKEUP].delta =
 		alarms[ANDROID_ALARM_ELAPSED_REALTIME].delta =
 		ktime_sub(alarms[ANDROID_ALARM_ELAPSED_REALTIME].delta,
 			timespec_to_ktime(timespec_sub(tmp_time, new_time)));
-	spin_unlock_irqrestore(&alarm_slock, flags);
-	ret = do_settimeofday(&new_time);
-	spin_lock_irqsave(&alarm_slock, flags);
 	for (i = 0; i < ANDROID_ALARM_SYSTEMTIME; i++) {
 		alarms[i].stopped = false;
 		update_timer_locked(&alarms[i], false);
@@ -333,11 +314,6 @@ alarm_update_timedelta(struct timespec tmp_time, struct timespec new_time)
 	spin_unlock_irqrestore(&alarm_slock, flags);
 }
 
-/**
- * alarm_get_elapsed_realtime - get the elapsed real time in ktime_t format
- *
- * returns the time in ktime_t format
- */
 ktime_t alarm_get_elapsed_realtime(void)
 {
 	ktime_t now;
@@ -509,6 +485,54 @@ static int alarm_resume(struct platform_device *pdev)
 	return 0;
 }
 
+#ifdef CONFIG_HTC_OFFMODE_ALARM
+static int find_offmode_alarm(void)
+{
+        struct timespec rtc_now;
+        int i;
+        int nearest_alarm = 0;
+        int nearest_alarm_snooze = 0;
+
+        getnstimeofday(&rtc_now);
+        for (i = 0; i < offalarm_size; i++) {
+                if (offalarm[i] > rtc_now.tv_sec) {
+                        if (nearest_alarm == 0)
+                                nearest_alarm = offalarm[i];
+                        else if (offalarm[i] < nearest_alarm)
+                                nearest_alarm = offalarm[i];
+                }
+        }
+        for (i = 0; i < offalarm_snooze_size; i++) {
+                if (offalarm_snooze[i] > rtc_now.tv_sec) {
+                        if (nearest_alarm_snooze == 0)
+                                nearest_alarm_snooze = offalarm_snooze[i];
+                        else if (offalarm_snooze[i] < nearest_alarm_snooze)
+                                nearest_alarm_snooze = offalarm_snooze[i];
+                }
+        }
+        pr_alarm(FLOW, "alarm(%u), snooze(%u)", nearest_alarm, nearest_alarm_snooze);
+        if((nearest_alarm == 0 || nearest_alarm_snooze <= nearest_alarm) && nearest_alarm_snooze != 0)
+                return nearest_alarm_snooze;
+        else
+                return nearest_alarm;
+}
+static void alarm_shutdown(struct platform_device *pdev)
+{
+        int offmode_alarm;
+        struct rtc_wkalrm rtc_alarm;
+
+        if (!htc_is_offalarm_enabled())
+                return;
+
+        offmode_alarm = find_offmode_alarm();
+        if (offmode_alarm > 0) {
+                pr_alarm(FLOW, "set offmode alarm(%u)", offmode_alarm);
+                rtc_time_to_tm(offmode_alarm, &rtc_alarm.time);
+                rtc_alarm.enabled = 1;
+                rtc_set_alarm(alarm_rtc_dev, &rtc_alarm);
+        }
+}
+#else
 static void alarm_shutdown(struct platform_device *dev)
 {
 	struct timespec wall_time;
@@ -529,11 +553,6 @@ static void alarm_shutdown(struct platform_device *dev)
 	alarm_delta = wall_time.tv_sec - rtc_secs;
 	alarm_time = power_on_alarm - alarm_delta;
 
-	/*
-	 * Substract ALARM_DELTA from actual alarm time
-	 * to powerup the device before actual alarm
-	 * expiration.
-	 */
 	if ((alarm_time - ALARM_DELTA) > rtc_secs)
 		alarm_time -= ALARM_DELTA;
 
@@ -556,6 +575,7 @@ disable_alarm:
 	rtc_alarm_irq_enable(alarm_rtc_dev, 0);
 	spin_unlock_irqrestore(&alarm_slock, flags);
 }
+#endif
 
 static struct rtc_task alarm_rtc_task = {
 	.func = alarm_triggered_func
@@ -627,12 +647,8 @@ static int __init alarm_late_init(void)
 	unsigned long   flags;
 	struct timespec tmp_time, system_time;
 
-	/* this needs to run after the rtc is read at boot */
+	
 	spin_lock_irqsave(&alarm_slock, flags);
-	/* We read the current rtc and system time so we can later calulate
-	 * elasped realtime to be (boot_systemtime + rtc - boot_rtc) ==
-	 * (rtc - (boot_rtc - boot_systemtime))
-	 */
 	getnstimeofday(&tmp_time);
 	ktime_get_ts(&system_time);
 	alarms[ANDROID_ALARM_ELAPSED_REALTIME_WAKEUP].delta =

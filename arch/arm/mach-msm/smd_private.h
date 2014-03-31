@@ -52,7 +52,6 @@ struct smsm_interrupt_info {
   uint32_t aArm_wakeup_reason;
 };
 #elif !defined(CONFIG_MSM_SMD)
-/* Don't trigger the error */
 #else
 #error No SMD Package Specified; aborting
 #endif
@@ -75,12 +74,6 @@ struct smsm_interrupt_info {
 #define SMD_CHANNELS             64
 #define SMD_HEADER_SIZE          20
 
-/* 'type' field of smd_alloc_elm structure
- * has the following breakup
- * bits 0-7   -> channel type
- * bits 8-11  -> xfer type
- * bits 12-31 -> reserved
- */
 struct smd_alloc_elm {
 	char name[20];
 	uint32_t cid;
@@ -157,8 +150,8 @@ int is_word_access_ch(unsigned ch_type);
 struct smd_half_channel_access *get_half_ch_funcs(unsigned ch_type);
 
 struct smd_channel {
-	volatile void __iomem *send; /* some variant of smd_half_channel */
-	volatile void __iomem *recv; /* some variant of smd_half_channel */
+	volatile void __iomem *send; 
+	volatile void __iomem *recv; 
 	unsigned char *send_data;
 	unsigned char *recv_data;
 	unsigned fifo_size;
@@ -190,10 +183,6 @@ struct smd_channel {
 
 	char is_pkt_ch;
 
-	/*
-	 * private internal functions to access *send and *recv.
-	 * never to be exported outside of smd
-	 */
 	struct smd_half_channel_access *half_ch;
 };
 
@@ -201,6 +190,7 @@ extern spinlock_t smem_lock;
 
 
 void smd_diag(void);
+int smd_smsm_erase_efs(void);
 
 struct interrupt_stat {
 	uint32_t smd_in_count;
@@ -216,9 +206,9 @@ struct interrupt_stat {
 extern struct interrupt_stat interrupt_stats[NUM_SMD_SUBSYSTEMS];
 
 struct interrupt_config_item {
-	/* must be initialized */
+	
 	irqreturn_t (*irq_handler)(int req, void *data);
-	/* outgoing interrupt config (set from platform data) */
+	
 	uint32_t out_bit_pos;
 	void __iomem *out_base;
 	uint32_t out_offset;

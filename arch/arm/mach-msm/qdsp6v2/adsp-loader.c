@@ -88,7 +88,7 @@ static void adsp_loader_do(struct platform_device *pdev)
 			goto fail;
 		}
 
-		/* Set the state of the ADSP in APR driver */
+		
 		apr_set_q6_state(APR_SUBSYS_LOADED);
 	} else if (adsp_state == APR_SUBSYS_LOADED) {
 		dev_dbg(&pdev->dev,
@@ -115,7 +115,7 @@ static ssize_t adsp_boot_store(struct kobject *kobj,
 	sscanf(buf, "%du", &boot);
 
 	if (boot == BOOT_CMD) {
-		pr_debug("%s:going to call adsp_loader_do", __func__);
+		pr_info("%s:going to call adsp_loader_do", __func__);
 		adsp_loader_do(adsp_private);
 	}
 	return count;
@@ -205,6 +205,7 @@ static int adsp_loader_remove(struct platform_device *pdev)
 static int adsp_loader_probe(struct platform_device *pdev)
 {
 	int ret = adsp_loader_init_sysfs(pdev);
+	pr_info("%s start.\n", __FUNCTION__);
 	if (ret != 0) {
 		dev_err(&pdev->dev, "%s: Error in initing sysfs\n", __func__);
 		return ret;

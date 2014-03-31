@@ -29,8 +29,6 @@
 #define MAX_SDIO_TTY_DEVS		2
 #define MAX_SDIO_TTY_DEV_NAME_SIZE	25
 
-/* Configurations per channel device */
-/* CSVT */
 #define SDIO_TTY_CSVT_DEV		"sdio_tty_csvt_0"
 #define SDIO_TTY_CSVT_TEST_DEV		"sdio_tty_csvt_test_0"
 #define SDIO_TTY_CH_CSVT		"SDIO_CSVT"
@@ -82,10 +80,6 @@ struct dentry *sdio_tty_debug_info;
 
 #define DEBUG_MSG(sdio_tty_drv, x...) if (sdio_tty_drv->debug_msg_on) pr_info(x)
 
-/*
- * Enable sdio_tty debug messages
- * By default the sdio_tty debug messages are turned off
- */
 static int csvt_debug_msg_on;
 module_param(csvt_debug_msg_on, int, 0);
 
@@ -117,8 +111,6 @@ static void sdio_tty_read(struct work_struct *work)
 		return;
 	}
 
-	/* Read the data from the SDIO channel as long as there is available
-	   data */
 	while (1) {
 		if (test_bit(TTY_THROTTLED, &sdio_tty_drv->tty_str->flags)) {
 			DEBUG_MSG(sdio_tty_drv, SDIO_TTY_MODULE_NAME
@@ -189,15 +181,6 @@ static void sdio_tty_read(struct work_struct *work)
 	}
 }
 
-/**
-  * sdio_tty_write_room
-  *
-  * This is the write_room function of the tty driver.
-  *
-  * @tty: pointer to tty struct.
-  * @return free bytes for write.
-  *
-  */
 static int sdio_tty_write_room(struct tty_struct *tty)
 {
 	int write_avail = 0;
@@ -331,15 +314,6 @@ static void sdio_tty_notify(void *priv, unsigned event)
 		queue_work(sdio_tty_drv->workq, &sdio_tty_drv->work_read);
 }
 
-/**
-  * sdio_tty_open
-  * This is the open callback of the tty driver. it opens
-  * the sdio channel, and creates the workqueue.
-  *
-  * @tty: a pointer to the tty struct.
-  * @file: file descriptor.
-  * @return 0 on success or negative value on error.
-  */
 static int sdio_tty_open(struct tty_struct *tty, struct file *file)
 {
 	int ret = 0;
@@ -411,9 +385,6 @@ static int sdio_tty_open(struct tty_struct *tty, struct file *file)
 
 		sdio_tty_drv->is_sdio_open = 1;
 	} else {
-		/* If SDIO channel is already open try to read the data
-		 * from the modem
-		 */
 		queue_work(sdio_tty_drv->workq, &sdio_tty_drv->work_read);
 
 	}
@@ -426,17 +397,6 @@ static int sdio_tty_open(struct tty_struct *tty, struct file *file)
 	return ret;
 }
 
-/**
-  * sdio_tty_close
-  * This is the close callback of the tty driver. it requests
-  * the main thread to exit, and waits for notification of it.
-  * it also de-allocates the buffers, and unregisters the tty
-  * driver and device.
-  *
-  * @tty: a pointer to the tty struct.
-  * @file: file descriptor.
-  * @return None.
-  */
 static void sdio_tty_close(struct tty_struct *tty, struct file *file)
 {
 	struct sdio_tty *sdio_tty_drv = NULL;
@@ -556,14 +516,14 @@ int sdio_tty_init_tty(char *tty_name, char *sdio_ch_name,
 	sdio_tty_drv->tty_drv->name = tty_name;
 	sdio_tty_drv->tty_drv->owner = THIS_MODULE;
 	sdio_tty_drv->tty_drv->driver_name = "SDIO_tty";
-	/* uses dynamically assigned dev_t values */
+	
 	sdio_tty_drv->tty_drv->type = TTY_DRIVER_TYPE_SERIAL;
 	sdio_tty_drv->tty_drv->subtype = SERIAL_TYPE_NORMAL;
 	sdio_tty_drv->tty_drv->flags = TTY_DRIVER_REAL_RAW
 		| TTY_DRIVER_DYNAMIC_DEV
 		| TTY_DRIVER_RESET_TERMIOS;
 
-	/* initializing the tty driver */
+	
 	sdio_tty_drv->tty_drv->init_termios = tty_std_termios;
 	sdio_tty_drv->tty_drv->init_termios.c_cflag =
 		B4800 | CS8 | CREAD | HUPCL | CLOCAL;
@@ -770,12 +730,6 @@ const struct file_operations tty_debug_info_ops = {
 };
 #endif
 
-/*
- *  Module Init.
- *
- *  Register SDIO TTY driver.
- *
- */
 static int __init sdio_tty_init(void)
 {
 	int ret = 0;
@@ -801,12 +755,6 @@ static int __init sdio_tty_init(void)
 	return ret;
 };
 
-/*
- *  Module Exit.
- *
- *  Unregister SDIO TTY driver.
- *
- */
 static void __exit sdio_tty_exit(void)
 {
 #ifdef CONFIG_DEBUG_FS

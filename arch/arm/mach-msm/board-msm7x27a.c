@@ -139,7 +139,7 @@ static void gsbi_qup_i2c_gpio_config(int adap_id, int config_type)
 	if (adap_id < 0 || adap_id > 1)
 		return;
 
-	/* Each adapter gets 2 lines from the table */
+	
 	if (config_type)
 		rc = msm_gpios_request_enable(&qup_i2c_gpios_hw[adap_id*2], 2);
 	else
@@ -247,7 +247,7 @@ static int msm_hsusb_ldo_init(int init)
 
 		return 0;
 	}
-	/* else fall through */
+	
 reg_free:
 	regulator_put(reg_hsusb);
 out:
@@ -375,10 +375,9 @@ static struct msm_pm_boot_platform_data msm_pm_boot_pdata __initdata = {
 	.p_addr = 0,
 };
 
-/* 8625 PM platform data */
 static struct msm_pm_platform_data
 		msm8625_pm_data[MSM_PM_SLEEP_MODE_NR * CONFIG_NR_CPUS] = {
-	/* CORE0 entries */
+	
 	[MSM_PM_MODE(0, MSM_PM_SLEEP_MODE_POWER_COLLAPSE)] = {
 					.idle_supported = 1,
 					.suspend_supported = 1,
@@ -397,7 +396,7 @@ static struct msm_pm_platform_data
 					.residency = 20000,
 	},
 
-	/* picked latency & redisdency values from 7x30 */
+	
 	[MSM_PM_MODE(0, MSM_PM_SLEEP_MODE_POWER_COLLAPSE_STANDALONE)] = {
 					.idle_supported = 1,
 					.suspend_supported = 1,
@@ -416,7 +415,7 @@ static struct msm_pm_platform_data
 					.residency = 10,
 	},
 
-	/* picked latency & redisdency values from 7x30 */
+	
 	[MSM_PM_MODE(1, MSM_PM_SLEEP_MODE_POWER_COLLAPSE_STANDALONE)] = {
 					.idle_supported = 1,
 					.suspend_supported = 1,
@@ -435,7 +434,7 @@ static struct msm_pm_platform_data
 					.residency = 10,
 	},
 
-	/* picked latency & redisdency values from 7x30 */
+	
 	[MSM_PM_MODE(2, MSM_PM_SLEEP_MODE_POWER_COLLAPSE_STANDALONE)] = {
 					.idle_supported = 1,
 					.suspend_supported = 1,
@@ -454,7 +453,7 @@ static struct msm_pm_platform_data
 					.residency = 10,
 	},
 
-	/* picked latency & redisdency values from 7x30 */
+	
 	[MSM_PM_MODE(3, MSM_PM_SLEEP_MODE_POWER_COLLAPSE_STANDALONE)] = {
 					.idle_supported = 1,
 					.suspend_supported = 1,
@@ -619,7 +618,7 @@ static void msm7x27a_cfg_smsc911x(void)
 		return;
 	}
 
-	/* ETH_FIFO_SEL */
+	
 	res = gpio_direction_output(ETH_FIFO_SEL_GPIO, 0);
 	if (res) {
 		pr_err("%s: unable to get direction for gpio %d\n", __func__,
@@ -764,10 +763,6 @@ static struct ion_co_heap_pdata co_ion_pdata = {
 };
 #endif
 
-/**
- * These heaps are listed in the order they will be allocated.
- * Don't swap the order unless you know what you are doing!
- */
 struct ion_platform_heap msm7627a_heaps[] = {
 		{
 			.id	= ION_SYSTEM_HEAP_ID,
@@ -775,7 +770,7 @@ struct ion_platform_heap msm7627a_heaps[] = {
 			.name	= ION_VMALLOC_HEAP_NAME,
 		},
 #ifdef CONFIG_MSM_MULTIMEDIA_USE_ION
-		/* ION_ADSP = CAMERA */
+		
 		{
 			.id	= ION_CAMERA_HEAP_ID,
 			.type	= ION_HEAP_TYPE_CARVEOUT,
@@ -783,7 +778,7 @@ struct ion_platform_heap msm7627a_heaps[] = {
 			.memory_type = ION_EBI_TYPE,
 			.extra_data = (void *)&co_ion_pdata,
 		},
-		/* ION_AUDIO */
+		
 		{
 			.id	= ION_AUDIO_HEAP_ID,
 			.type	= ION_HEAP_TYPE_CARVEOUT,
@@ -791,7 +786,7 @@ struct ion_platform_heap msm7627a_heaps[] = {
 			.memory_type = ION_EBI_TYPE,
 			.extra_data = (void *)&co_ion_pdata,
 		},
-		/* ION_MDP = SF */
+		
 		{
 			.id	= ION_SF_HEAP_ID,
 			.type	= ION_HEAP_TYPE_CARVEOUT,
@@ -916,12 +911,12 @@ static void __init msm7x27a_init_ebi2(void)
 	ebi2_cfg = readl(ebi2_cfg_ptr);
 	if (machine_is_msm7x27a_rumi3() || machine_is_msm7x27a_surf() ||
 		machine_is_msm7625a_surf() || machine_is_msm8625_surf())
-		ebi2_cfg |= (1 << 4); /* CS2 */
+		ebi2_cfg |= (1 << 4); 
 
 	writel(ebi2_cfg, ebi2_cfg_ptr);
 	iounmap(ebi2_cfg_ptr);
 
-	/* Enable A/D MUX[bit 31] from EBI2_XMEM_CS2_CFG1 */
+	
 	ebi2_cfg_ptr = ioremap_nocache(MSM_EBI2_XMEM_CS2_CFG1,
 							 sizeof(uint32_t));
 	if (!ebi2_cfg_ptr)
@@ -1078,7 +1073,7 @@ static void __init msm7x2x_init(void)
 {
 	msm7x2x_misc_init();
 
-	/* Initialize regulators first so that other devices can use them */
+	
 	msm7x27a_init_regulators();
 	msm_adsp_add_pdev();
 	if (cpu_is_msm8625() || cpu_is_msm8625q())
@@ -1093,7 +1088,7 @@ static void __init msm7x2x_init(void)
 
 	msm7x27a_add_footswitch_devices();
 	msm7x27a_add_platform_devices();
-	/* Ensure ar6000pm device is registered before MMC/SDC */
+	
 	msm7x27a_init_ar6000pm();
 	msm7627a_init_mmc();
 	msm_fb_add_devices();
@@ -1105,9 +1100,9 @@ static void __init msm7x2x_init(void)
 #endif
 	msm7627a_camera_init();
 	msm7627a_add_io_devices();
-	/*7x25a kgsl initializations*/
+	
 	msm7x25a_kgsl_3d0_init();
-	/*8x25 kgsl initializations*/
+	
 	msm8x25_kgsl_3d0_init();
 }
 

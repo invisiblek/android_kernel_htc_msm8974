@@ -37,28 +37,11 @@
 #include <sound/compress_offload.h>
 #include <sound/compress_driver.h>
 
-/* TODO:
- * - Integrate with alsa, compressed devices should register as alsa devices
- *	as /dev/snd_compr_xxx
- * - Integrate with ASoC:
- *	Opening compressed path should also start the codec dai
- *   TBD how the cpu dai will be viewed and started.
- *	ASoC should always be optional part
- *	(we should be able to use this framework in non asoc systems
- * - Multiple node representation
- *	driver should be able to register multiple nodes
- * - Version numbering for API
- */
 
 static DEFINE_MUTEX(device_mutex);
 static LIST_HEAD(device_list);
 static LIST_HEAD(misc_list);
 
-/*
- * currently we are using misc device for registration and exposing ioctls
- * this is temporary and will be moved to snd
- * the device should be registered as /dev/snd_compr.....
- */
 
 struct snd_compr_misc {
 	struct miscdevice misc;
@@ -100,8 +83,6 @@ static int snd_compr_open(struct inode *inode, struct file *f)
 		ret = -ENXIO;
 		goto out;
 	}
-	/* curently only encoded playback is supported, above needs to be
-	 * removed once we have recording support */
 
 	data = kzalloc(sizeof(*data), GFP_KERNEL);
 	if (!data) {
@@ -222,7 +203,7 @@ static ssize_t snd_compr_write(struct file *f, const char __user *buf,
 	BUG_ON(!data);
 	stream = &data->stream;
 	mutex_lock(&stream->device->lock);
-	/* write is allowed when stream is running or has been steup */
+	
 	if (stream->runtime->state != SNDRV_PCM_STATE_SETUP &&
 			stream->runtime->state != SNDRV_PCM_STATE_RUNNING) {
 		mutex_unlock(&stream->device->lock);
@@ -230,7 +211,7 @@ static ssize_t snd_compr_write(struct file *f, const char __user *buf,
 	}
 
 	avail = snd_compr_get_avail(stream);
-	/* calculate how much we can write to buffer */
+	
 	if (avail > count)
 		avail = count;
 
@@ -239,8 +220,6 @@ static ssize_t snd_compr_write(struct file *f, const char __user *buf,
 	else
 		retval = snd_compr_write_data(stream, buf, avail);
 
-	/* while initiating the stream, write should be called before START
-	 * call, so in setup move state */
 	if (stream->runtime->state == SNDRV_PCM_STATE_SETUP)
 		stream->runtime->state = SNDRV_PCM_STATE_PREPARED;
 
@@ -276,8 +255,6 @@ unsigned int snd_compr_poll(struct file *f, poll_table *wait)
 	}
 	poll_wait(f, &stream->runtime->sleep, wait);
 
-	/* this would change after read is implemented, we would need to
-	 * check for direction here */
 	if (stream->runtime->state != SNDRV_PCM_STATE_RUNNING)
 		retval = POLLOUT | POLLWRNORM;
 out:
@@ -349,7 +326,6 @@ out:
 	return retval;
 }
 
-/* revisit this with snd_pcm_preallocate_xxx */
 static int snd_compr_allocate_buffer(struct snd_compr_stream *stream,
 		struct snd_compr_params *params)
 {
@@ -359,9 +335,6 @@ static int snd_compr_allocate_buffer(struct snd_compr_stream *stream,
 	buffer_size = params->buffer.fragment_size * params->buffer.fragments;
 	if (stream->ops->copy) {
 		buffer = NULL;
-		/* if copy is defined the driver will be required to copy
-		 * the data from core
-		 */
 	} else {
 		buffer = kmalloc(buffer_size, GFP_KERNEL);
 		if (!buffer)
@@ -380,10 +353,6 @@ static int snd_compr_set_params(struct snd_compr_stream *stream, unsigned long a
 	int retval;
 
 	if (stream->runtime->state == SNDRV_PCM_STATE_OPEN) {
-		/*
-		 * we should allow parameter change only when stream has been
-		 * opened not in other cases
-		 */
 		params = kmalloc(sizeof(*params), GFP_KERNEL);
 		if (!params)
 			return -ENOMEM;
@@ -597,11 +566,6 @@ static int snd_compress_remove_device(struct snd_compr *device)
 	}
 	return 0;
 }
-/**
- * snd_compress_register - register compressed device
- *
- * @device: compressed device to register
- */
 int snd_compress_register(struct snd_compr *device)
 {
 	int retval;
@@ -618,14 +582,14 @@ int snd_compress_register(struct snd_compr *device)
 	BUG_ON(!device->ops->get_codec_caps);
 
 	INIT_LIST_HEAD(&device->list);
-	/* todo register the compressed streams */
-	/* todo integrate with asoc */
+	
+	
 
-	/* register a compressed card  TBD if this needs change */
+	
 
 	pr_debug("Registering compressed device %s\n", device->name);
 	mutex_lock(&device_mutex);
-	/*  register a msic device for now */
+	
 	retval = snd_compress_add_device(device);
 	if (!retval)
 		list_add_tail(&device->list, &device_list);

@@ -29,9 +29,6 @@ struct clk;
 struct pil_device;
 struct regulator;
 
-/**
- * struct q6v4_data - Q6 processor
- */
 struct q6v4_data {
 	void __iomem *base;
 	void __iomem *wdog_base;

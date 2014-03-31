@@ -10,9 +10,6 @@
  * GNU General Public License for more details.
  *
  */
-/*
- * Touchpad driver for QSD platform.
- */
 
 struct msm_touchpad_platform_data {
 	int gpioirq;

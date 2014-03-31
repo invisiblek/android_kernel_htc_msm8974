@@ -14,16 +14,10 @@
 #ifndef __QCI_KBD_H__
 #define __QCI_KBD_H__
 
-/**
- * struct qci_kbd_platform_data - platform data for keyboard
- * @repeat: enable or disable key repeate feature
- *
- * platform data structure for QCI keyboard driver.
- */
 struct qci_kbd_platform_data {
 	bool repeat;
 	bool standard_scancodes;
 	bool kb_leds;
 };
 
-#endif /*__QCI_KBD_H__*/
+#endif 

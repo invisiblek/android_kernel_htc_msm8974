@@ -14,13 +14,6 @@
 #include <linux/uaccess.h>
 #include <linux/debugfs.h>
 
-/*
- * Subsequent patches should add an entry to end of this string.
- * Format is incrementing sequence number followed by text of
- * patch commit title with newline.
- * Note trailing ';' is on its own line to simplify addition of
- * future strings.
- */
 static char *descriptions =
 	"0  msm: perf: add debug patch logging framework\n"
 	"1  Perf: Restore counter after powercollapse for generic ARM PMU's\n"

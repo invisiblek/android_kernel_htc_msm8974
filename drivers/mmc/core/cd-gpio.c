@@ -16,6 +16,7 @@
 #include <linux/mmc/host.h>
 #include <linux/module.h>
 #include <linux/slab.h>
+#include <linux/ratelimit.h>
 
 struct mmc_cd_gpio {
 	unsigned int gpio;
@@ -23,7 +24,7 @@ struct mmc_cd_gpio {
 	bool status;
 };
 
-static int mmc_cd_get_status(struct mmc_host *host)
+int mmc_cd_get_status(struct mmc_host *host)
 {
 	int ret = -ENOSYS;
 	struct mmc_cd_gpio *cd = host->hotplug.handler_priv;
@@ -36,6 +37,7 @@ static int mmc_cd_get_status(struct mmc_host *host)
 out:
 	return ret;
 }
+EXPORT_SYMBOL(mmc_cd_get_status);
 
 static irqreturn_t mmc_cd_gpio_irqt(int irq, void *dev_id)
 {
@@ -48,13 +50,15 @@ static irqreturn_t mmc_cd_gpio_irqt(int irq, void *dev_id)
 		goto out;
 
 	if (status ^ cd->status) {
-		pr_info("%s: slot status change detected (%d -> %d), GPIO_ACTIVE_%s\n",
+		printk_ratelimited(KERN_INFO "%s: slot status change detected (%d -> %d), GPIO_ACTIVE_%s\n",
 				mmc_hostname(host), cd->status, status,
 				(host->caps2 & MMC_CAP2_CD_ACTIVE_HIGH) ?
 				"HIGH" : "LOW");
 		cd->status = status;
-
-		/* Schedule a card detection after a debounce timeout */
+		
+		host->caps |= host->caps_uhs;
+		host->redetect_cnt = 0;
+		
 		mmc_detect_change(host, msecs_to_jiffies(100));
 	}
 out:
@@ -70,6 +74,8 @@ int mmc_cd_gpio_request(struct mmc_host *host, unsigned int gpio)
 
 	if (irq < 0)
 		return irq;
+
+	irq_set_irq_wake(irq, 1);
 
 	cd = kmalloc(sizeof(*cd) + len, GFP_KERNEL);
 	if (!cd)

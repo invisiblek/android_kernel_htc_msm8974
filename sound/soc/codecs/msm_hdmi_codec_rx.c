@@ -92,9 +92,11 @@ static int msm_hdmi_audio_codec_rx_dai_startup(
 	msm_hdmi_audio_codec_return_value =
 		codec_data->hdmi_ops.hdmi_cable_status(
 		codec_data->hdmi_core_pdev, 1);
-	if (IS_ERR_VALUE(msm_hdmi_audio_codec_return_value)) {
+	pr_info("%s: hdmi status %d\n",__func__,msm_hdmi_audio_codec_return_value);
+	if (IS_ERR_VALUE(msm_hdmi_audio_codec_return_value) || msm_hdmi_audio_codec_return_value == 0) {
 		dev_err(dai->dev,
 			"%s() HDMI core is not ready\n", __func__);
+		msm_hdmi_audio_codec_return_value = -EINVAL;
 	}
 
 	return msm_hdmi_audio_codec_return_value;
@@ -106,7 +108,7 @@ static int msm_hdmi_audio_codec_rx_dai_hw_params(
 		struct snd_soc_dai *dai)
 {
 	u32 channel_allocation = 0;
-	u32 level_shift  = 0; /* 0dB */
+	u32 level_shift  = 0; 
 	bool down_mix = 0;
 	u32 num_channels = params_channels(params);
 	int rc = 0;
@@ -114,10 +116,20 @@ static int msm_hdmi_audio_codec_rx_dai_hw_params(
 	struct msm_hdmi_audio_codec_rx_data *codec_data =
 			dev_get_drvdata(dai->codec->dev);
 
-	/*refer to HDMI spec CEA-861-E: Table 28 Audio InfoFrame Data Byte 4*/
+	rc = codec_data->hdmi_ops.hdmi_cable_status(
+		codec_data->hdmi_core_pdev, 1);
+	pr_info("%s: hdmi status %d\n",__func__,rc);
+	if (IS_ERR_VALUE(rc) || rc == 0) {
+		rc = -EINVAL;
+		dev_err(dai->dev,
+			"%s() HDMI core is not ready 1\n", __func__);
+		return rc;
+	}
+
+	
 	if (IS_ERR_VALUE(msm_hdmi_audio_codec_return_value)) {
 		dev_err(dai->dev,
-			"%s() HDMI core is not ready\n", __func__);
+			"%s() HDMI core is not ready 2\n", __func__);
 		return msm_hdmi_audio_codec_return_value;
 	}
 
@@ -126,19 +138,19 @@ static int msm_hdmi_audio_codec_rx_dai_hw_params(
 		channel_allocation  = 0;
 		break;
 	case 3:
-		channel_allocation  = 0x02;//default to FL/FR/FC
+		channel_allocation  = 0x02;
 		break;
 	case 4:
-		channel_allocation  = 0x06;//default to FL/FR/FC/RC
+		channel_allocation  = 0x06;
 		break;
 	case 5:
-		channel_allocation  = 0x0A;//default to FL/FR/FC/RR/RL
+		channel_allocation  = 0x0A;
 		break;
 	case 6:
 		channel_allocation  = 0x0B;
 		break;
 	case 7:
-		channel_allocation  = 0x12;//default to FL/FR/FC/RL/RR/RRC/RLC
+		channel_allocation  = 0x12;
 		break;
 	case 8:
 		channel_allocation  = 0x13;
@@ -159,7 +171,7 @@ static int msm_hdmi_audio_codec_rx_dai_hw_params(
 			channel_allocation, level_shift, down_mix);
 	if (IS_ERR_VALUE(rc)) {
 		dev_err(dai->dev,
-			"%s() HDMI core is not ready\n", __func__);
+			"%s() HDMI core is not ready 3\n", __func__);
 	}
 
 	return rc;
@@ -176,6 +188,7 @@ static void msm_hdmi_audio_codec_rx_dai_shutdown(
 
 	rc = codec_data->hdmi_ops.hdmi_cable_status(
 			codec_data->hdmi_core_pdev, 0);
+	pr_info("%s: hdmi status %d\n",__func__,rc);
 	if (IS_ERR_VALUE(rc)) {
 		dev_err(dai->dev,
 			"%s() HDMI core had problems releasing HDMI audio flag\n",
@@ -198,7 +211,7 @@ static int msm_hdmi_audio_codec_rx_probe(struct snd_soc_codec *codec)
 
 	codec_data = kzalloc(sizeof(struct msm_hdmi_audio_codec_rx_data),
 		GFP_KERNEL);
-
+	pr_info("%s++\n",__func__);
 	if (!codec_data) {
 		dev_err(codec->dev, "%s(): fail to allocate dai data\n",
 				__func__);
@@ -233,6 +246,11 @@ static int msm_hdmi_audio_codec_rx_probe(struct snd_soc_codec *codec)
 	dev_dbg(codec->dev, "%s(): registerd %s with HDMI core\n",
 		__func__, codec->name);
 
+	if(codec_data->hdmi_ops.hdmi_cable_status)
+		pr_info("%s: hdmi_cable_status is ok\n",__func__);
+	else
+		pr_info("%s: hdmi_cable_status is null\n",__func__);
+	pr_info("%s--\n",__func__);
 	return 0;
 }
 

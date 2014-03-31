@@ -31,7 +31,10 @@
 #include "clock-krait.h"
 #include "clock.h"
 
-/* Clock inputs coming into Krait subsystem */
+#ifdef CONFIG_PERFLOCK
+#include <mach/perflock.h>
+#endif
+
 DEFINE_FIXED_DIV_CLK(hfpll_src_clk, 1, NULL);
 DEFINE_FIXED_DIV_CLK(acpu_aux_clk, 2, NULL);
 
@@ -72,6 +75,7 @@ static struct hfpll_clk hfpll0_clk = {
 		.fmax = hfpll_fmax,
 		.num_fmax = ARRAY_SIZE(hfpll_fmax),
 		CLK_INIT(hfpll0_clk.c),
+		.flags = CLKFLAG_VOTE_VDD_DELAY,
 	},
 };
 
@@ -88,6 +92,7 @@ static struct hfpll_clk hfpll1_clk = {
 		.fmax = hfpll_fmax,
 		.num_fmax = ARRAY_SIZE(hfpll_fmax),
 		CLK_INIT(hfpll1_clk.c),
+		.flags = CLKFLAG_VOTE_VDD_DELAY,
 	},
 };
 
@@ -104,6 +109,7 @@ static struct hfpll_clk hfpll2_clk = {
 		.fmax = hfpll_fmax,
 		.num_fmax = ARRAY_SIZE(hfpll_fmax),
 		CLK_INIT(hfpll2_clk.c),
+		.flags = CLKFLAG_VOTE_VDD_DELAY,
 	},
 };
 
@@ -120,6 +126,7 @@ static struct hfpll_clk hfpll3_clk = {
 		.fmax = hfpll_fmax,
 		.num_fmax = ARRAY_SIZE(hfpll_fmax),
 		CLK_INIT(hfpll3_clk.c),
+		.flags = CLKFLAG_VOTE_VDD_DELAY,
 	},
 };
 
@@ -136,6 +143,7 @@ static struct hfpll_clk hfpll_l2_clk = {
 		.fmax = hfpll_fmax,
 		.num_fmax = ARRAY_SIZE(hfpll_fmax),
 		CLK_INIT(hfpll_l2_clk.c),
+		.flags = CLKFLAG_VOTE_VDD_DELAY,
 	},
 };
 
@@ -148,7 +156,7 @@ DEFINE_KPSS_DIV2_CLK(hfpll_l2_div_clk, &hfpll_l2_clk.c, 0x500, false);
 	.shift = 2,			\
 	MUX_SRC_LIST(			\
 		{&acpu_aux_clk.c, 2},	\
-		{NULL /* QSB */, 0},	\
+		{NULL , 0},	\
 	)
 
 static struct mux_clk krait0_sec_mux_clk = {
@@ -302,15 +310,6 @@ static DEFINE_VDD_REGS_INIT(vdd_krait2, 1);
 static DEFINE_VDD_REGS_INIT(vdd_krait3, 1);
 static DEFINE_VDD_REGS_INIT(vdd_l2, 1);
 
-/*
- * This clock is mostly a dummy clock in the sense it can't really gate the
- * CPU/L2 clocks or affect their frequency. It exists solely to:
- *
- * - Capture the PVS requirements for each CPU.
- * - Implement HW clock gating disable ops needed for measuring the freq of
- *   Krait/L2 properly.
- * - Implement AVS requirement.
- */
 static struct kpss_core_clk krait0_clk = {
 	.id	= 0,
 	.avs_tbl = &avs_table,
@@ -320,6 +319,7 @@ static struct kpss_core_clk krait0_clk = {
 		.ops = &clk_ops_kpss_cpu,
 		.vdd_class = &vdd_krait0,
 		CLK_INIT(krait0_clk.c),
+		.flags = CLKFLAG_CPU_CLK | CLKFLAG_VOTE_VDD_DELAY,
 	},
 };
 
@@ -332,6 +332,7 @@ static struct kpss_core_clk krait1_clk = {
 		.ops = &clk_ops_kpss_cpu,
 		.vdd_class = &vdd_krait1,
 		CLK_INIT(krait1_clk.c),
+		.flags = CLKFLAG_CPU_CLK | CLKFLAG_VOTE_VDD_DELAY,
 	},
 };
 
@@ -344,6 +345,7 @@ static struct kpss_core_clk krait2_clk = {
 		.ops = &clk_ops_kpss_cpu,
 		.vdd_class = &vdd_krait2,
 		CLK_INIT(krait2_clk.c),
+		.flags = CLKFLAG_CPU_CLK | CLKFLAG_VOTE_VDD_DELAY,
 	},
 };
 
@@ -356,6 +358,7 @@ static struct kpss_core_clk krait3_clk = {
 		.ops = &clk_ops_kpss_cpu,
 		.vdd_class = &vdd_krait3,
 		CLK_INIT(krait3_clk.c),
+		.flags = CLKFLAG_CPU_CLK | CLKFLAG_VOTE_VDD_DELAY,
 	},
 };
 
@@ -367,6 +370,7 @@ static struct kpss_core_clk l2_clk = {
 		.ops = &clk_ops_kpss_l2,
 		.vdd_class = &vdd_l2,
 		CLK_INIT(l2_clk.c),
+		.flags = CLKFLAG_L2_CLK | CLKFLAG_VOTE_VDD_DELAY,
 	},
 };
 
@@ -413,8 +417,16 @@ static struct clk *cpu_clk[] = {
 	&krait3_clk.c,
 };
 
+static struct kpss_core_clk *krait_clk[] = {
+	&krait0_clk,
+	&krait1_clk,
+	&krait2_clk,
+	&krait3_clk,
+	&l2_clk,
+};
+
 static void get_krait_bin_format_b(struct platform_device *pdev,
-					int *speed, int *pvs, int *ver)
+					int *speed, int *pvs, int *pvs_ver)
 {
 	u32 pte_efuse, redundant_sel;
 	struct resource *res;
@@ -422,7 +434,7 @@ static void get_krait_bin_format_b(struct platform_device *pdev,
 
 	*speed = 0;
 	*pvs = 0;
-	*ver = 0;
+	*pvs_ver = 0;
 
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "efuse");
 	if (!res) {
@@ -441,9 +453,9 @@ static void get_krait_bin_format_b(struct platform_device *pdev,
 	pte_efuse = readl_relaxed(base);
 	redundant_sel = (pte_efuse >> 24) & 0x7;
 	*speed = pte_efuse & 0x7;
-	/* 4 bits of PVS are in efuse register bits 31, 8-6. */
+	
 	*pvs = ((pte_efuse >> 28) & 0x8) | ((pte_efuse >> 6) & 0x7);
-	*ver = (pte_efuse >> 4) & 0x3;
+	*pvs_ver = (pte_efuse >> 4) & 0x3;
 
 	switch (redundant_sel) {
 	case 1:
@@ -454,7 +466,7 @@ static void get_krait_bin_format_b(struct platform_device *pdev,
 		break;
 	}
 
-	/* Check SPEED_BIN_BLOW_STATUS */
+	
 	if (pte_efuse & BIT(3)) {
 		dev_info(&pdev->dev, "Speed bin: %d\n", *speed);
 	} else {
@@ -462,7 +474,7 @@ static void get_krait_bin_format_b(struct platform_device *pdev,
 		*speed = 0;
 	}
 
-	/* Check PVS_BLOW_STATUS */
+	
 	pte_efuse = readl_relaxed(base + 0x4) & BIT(21);
 	if (pte_efuse) {
 		dev_info(&pdev->dev, "PVS bin: %d\n", *pvs);
@@ -471,7 +483,7 @@ static void get_krait_bin_format_b(struct platform_device *pdev,
 		*pvs = 0;
 	}
 
-	dev_info(&pdev->dev, "PVS version: %d\n", *ver);
+	dev_info(&pdev->dev, "PVS version: %d\n", *pvs_ver);
 
 	devm_iounmap(&pdev->dev, base);
 }
@@ -572,9 +584,9 @@ static void krait_update_uv(int *uv, int num, int boost_uv)
 	int i;
 
 	switch (read_cpuid_id()) {
-	case 0x511F04D0: /* KR28M2A20 */
-	case 0x511F04D1: /* KR28M2A21 */
-	case 0x510F06F0: /* KR28M4A10 */
+	case 0x511F04D0: 
+	case 0x511F04D1: 
+	case 0x510F06F0: 
 		for (i = 0; i < num; i++)
 			uv[i] = max(1150000, uv[i]);
 	};
@@ -585,12 +597,16 @@ static void krait_update_uv(int *uv, int num, int boost_uv)
 	}
 }
 
+static char table_name[] = "qcom,speedXX-pvsXX-bin-vXX";
+module_param_string(table_name, table_name, sizeof(table_name), S_IRUGO);
+static unsigned int pvs_config_ver;
+module_param(pvs_config_ver, uint, S_IRUGO);
+
 static int clock_krait_8974_driver_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
 	struct clk *c;
-	int speed, pvs, ver, rows, cpu;
-	char prop_name[] = "qcom,speedXX-pvsXX-bin-vXX";
+	int speed, pvs, pvs_ver, config_ver, rows, cpu;
 	unsigned long *freq, cur_rate, aux_rate;
 	int *uv, *ua;
 	u32 *dscr, vco_mask, config_val;
@@ -673,15 +689,22 @@ static int clock_krait_8974_driver_probe(struct platform_device *pdev)
 	if (!ret)
 		hdata.user_vco_mask = vco_mask;
 
-	get_krait_bin_format_b(pdev, &speed, &pvs, &ver);
-	snprintf(prop_name, ARRAY_SIZE(prop_name),
-			"qcom,speed%d-pvs%d-bin-v%d", speed, pvs, ver);
+	ret = of_property_read_u32(dev->of_node, "qcom,pvs-config-ver",
+			&config_ver);
+	if (!ret) {
+		pvs_config_ver = config_ver;
+		dev_info(&pdev->dev, "PVS config version: %d\n", config_ver);
+	}
 
-	rows = parse_tbl(dev, prop_name, 3,
+	get_krait_bin_format_b(pdev, &speed, &pvs, &pvs_ver);
+	snprintf(table_name, ARRAY_SIZE(table_name),
+			"qcom,speed%d-pvs%d-bin-v%d", speed, pvs, pvs_ver);
+
+	rows = parse_tbl(dev, table_name, 3,
 			(u32 **) &freq, (u32 **) &uv, (u32 **) &ua);
 	if (rows < 0) {
-		/* Fall back to most conservative PVS table */
-		dev_err(dev, "Unable to load voltage plan %s!\n", prop_name);
+		
+		dev_err(dev, "Unable to load voltage plan %s!\n", table_name);
 		ret = parse_tbl(dev, "qcom,speed0-pvs0-bin-v0", 3,
 				(u32 **) &freq, (u32 **) &uv, (u32 **) &ua);
 		if (ret < 0) {
@@ -705,7 +728,7 @@ static int clock_krait_8974_driver_probe(struct platform_device *pdev)
 	if (clk_init_vdd_class(dev, &krait3_clk.c, rows, freq, uv, ua))
 		return -ENOMEM;
 
-	/* AVS is optional */
+	
 	rows = parse_tbl(dev, "qcom,avs-tbl", 2, (u32 **) &freq, &dscr, NULL);
 	if (rows > 0) {
 		avs_table.rate = freq;
@@ -725,30 +748,12 @@ static int clock_krait_8974_driver_probe(struct platform_device *pdev)
 
 	msm_clock_register(kpss_clocks_8974, ARRAY_SIZE(kpss_clocks_8974));
 
-	/*
-	 * We don't want the CPU or L2 clocks to be turned off at late init
-	 * if CPUFREQ or HOTPLUG configs are disabled. So, bump up the
-	 * refcount of these clocks. Any cpufreq/hotplug manager can assume
-	 * that the clocks have already been prepared and enabled by the time
-	 * they take over.
-	 */
 	for_each_online_cpu(cpu) {
 		clk_prepare_enable(&l2_clk.c);
 		WARN(clk_prepare_enable(cpu_clk[cpu]),
 			"Unable to turn on CPU%d clock", cpu);
 	}
 
-	/*
-	 * Force reinit of HFPLLs and muxes to overwrite any potential
-	 * incorrect configuration of HFPLLs and muxes by the bootloader.
-	 * While at it, also make sure the cores are running at known rates
-	 * and print the current rate.
-	 *
-	 * The clocks are set to aux clock rate first to make sure the
-	 * secondary mux is not sourcing off of QSB. The rate is then set to
-	 * two different rates to force a HFPLL reinit under all
-	 * circumstances.
-	 */
 	cur_rate = clk_get_rate(&l2_clk.c);
 	aux_rate = clk_get_rate(&acpu_aux_clk.c);
 	if (!cur_rate) {
@@ -773,8 +778,43 @@ static int clock_krait_8974_driver_probe(struct platform_device *pdev)
 		pr_info("CPU%d @ %lu KHz\n", cpu, clk_get_rate(c) / 1000);
 	}
 
+	clock_krait_init(dev, (const struct kpss_core_clk **)krait_clk, sizeof(krait_clk), speed, pvs, pvs_ver);
+
 	return 0;
 }
+
+#ifdef CONFIG_PERFLOCK
+unsigned msm8974_perf_acpu_table[] = {
+        652800000,  
+        883200000,  
+        1036800000, 
+        1190400000, 
+        1958400000, 
+};
+
+static struct perflock_data msm8974_floor_data = {
+        .perf_acpu_table = msm8974_perf_acpu_table,
+        .table_size = ARRAY_SIZE(msm8974_perf_acpu_table),
+};
+
+static struct perflock_data msm8974_cpufreq_ceiling_data = {
+        .perf_acpu_table = msm8974_perf_acpu_table,
+        .table_size = ARRAY_SIZE(msm8974_perf_acpu_table),
+};
+
+static struct perflock_pdata perflock_pdata = {
+        .perf_floor = &msm8974_floor_data,
+        .perf_ceiling = &msm8974_cpufreq_ceiling_data,
+};
+
+struct platform_device msm8974_device_perf_lock = {
+        .name = "perf_lock",
+        .id = -1,
+        .dev = {
+        .platform_data = &perflock_pdata,
+    },
+};
+#endif
 
 static struct of_device_id match_table[] = {
 	{ .compatible = "qcom,clock-krait-8974" },

@@ -20,7 +20,6 @@
 #include "connection.h"
 #include "common.h"
 
-/* Define the initial state of the Data Available Semaphore */
 #define SEM_NO_DATA_AVAILABLE 0
 
 struct connection *connection_new(void)
@@ -57,7 +56,7 @@ void connection_cleanup(struct connection *conn)
 
 bool connection_connect(struct connection *conn, pid_t dest)
 {
-	/* Nothing to connect */
+	
 	conn->peer_pid = dest;
 	return true;
 }
@@ -69,7 +68,7 @@ size_t connection_read_data_msg(struct connection *conn, void *buffer,
 	MCDRV_DBG_VERBOSE(mc_kapi,
 			  "reading connection data %u, connection data left %u",
 			  len, conn->data_len);
-	/* trying to read more than the left data */
+	
 	if (len > conn->data_len) {
 		ret = conn->data_len;
 		memcpy(buffer, conn->data_start, conn->data_len);
@@ -107,10 +106,6 @@ size_t connection_read_data(struct connection *conn, void *buffer, uint32_t len,
 	MCDRV_DBG_VERBOSE(mc_kapi, "read data len = %u for PID = %u",
 			  len, conn->sequence_magic);
 	do {
-		/*
-		 * Wait until data is available or timeout
-		 * msecs_to_jiffies(-1) -> wait forever for the sem
-		 */
 		if (down_timeout(&(conn->data_available_sem),
 				 msecs_to_jiffies(timeout))) {
 			MCDRV_DBG_VERBOSE(mc_kapi,
@@ -126,13 +121,13 @@ size_t connection_read_data(struct connection *conn, void *buffer, uint32_t len,
 			break;
 		}
 
-		/* Have data, use it */
+		
 		if (conn->data_len > 0)
 			ret = connection_read_data_msg(conn, buffer, len);
 
 		mutex_unlock(&(conn->data_lock));
 
-		/* There is still some data left */
+		
 		if (conn->data_len > 0)
 			up(&conn->data_available_sem);
 
@@ -189,7 +184,7 @@ int connection_process(struct connection *conn, struct sk_buff *skb)
 
 		kfree_skb(conn->skb);
 
-		/* Get a reference to the incoming skb */
+		
 		conn->skb = skb_get(skb);
 		if (conn->skb) {
 			conn->data_msg = nlmsg_hdr(conn->skb);

@@ -115,11 +115,6 @@ static const char *hw_cache_result[PERF_COUNT_HW_CACHE_RESULT_MAX]
 #define CACHE_PREFETCH	(1 << C(OP_PREFETCH))
 #define COP(x)		(1 << x)
 
-/*
- * cache operartion stat
- * L1I : Read and prefetch only
- * ITLB and BPU : Read-only
- */
 static unsigned long hw_cache_stat[C(MAX)] = {
  [C(L1D)]	= (CACHE_READ | CACHE_WRITE | CACHE_PREFETCH),
  [C(L1I)]	= (CACHE_READ | CACHE_PREFETCH),
@@ -250,9 +245,9 @@ static const char *tracepoint_id_to_name(u64 config)
 static int is_cache_op_valid(u8 cache_type, u8 cache_op)
 {
 	if (hw_cache_stat[cache_type] & COP(cache_op))
-		return 1;	/* valid */
+		return 1;	
 	else
-		return 0;	/* invalid */
+		return 0;	
 }
 
 static char *event_cache_name(u8 cache_type, u8 cache_op, u8 cache_result)
@@ -301,13 +296,10 @@ const char *event_name(struct perf_evsel *evsel)
 	size_t buf_sz;
 
 	if (evsel->name) {
-		/* Make new space for the modifier bits. */
+		
 		buf_sz = strlen(evsel->name) + 3;
 		buf = malloc(buf_sz);
 		if (!buf)
-			/*
-			 * Always return what was already in 'name'.
-			 */
 			return evsel->name;
 
 		strlcpy(buf, evsel->name, buf_sz);
@@ -316,11 +308,11 @@ const char *event_name(struct perf_evsel *evsel)
 
 		evsel->name = buf;
 
-		/* User mode profiling. */
+		
 		if (!evsel->attr.exclude_user && evsel->attr.exclude_kernel)
 			strlcpy(&evsel->name[strlen(evsel->name)], ":u",
 					buf_sz);
-		/* Kernel mode profiling. */
+		
 		else if (!evsel->attr.exclude_kernel &&
 				evsel->attr.exclude_user)
 			strlcpy(&evsel->name[strlen(evsel->name)], ":k",
@@ -432,10 +424,6 @@ int parse_events_add_cache(struct list_head *list, int *idx,
 	char *op_result[2] = { op_result1, op_result2 };
 	int i, n;
 
-	/*
-	 * No fallback - if we cannot get a clear cache type
-	 * then bail out:
-	 */
 	cache_type = parse_aliases(type, hw_cache,
 				   PERF_COUNT_HW_CACHE_MAX);
 	if (cache_type == -1)
@@ -466,15 +454,9 @@ int parse_events_add_cache(struct list_head *list, int *idx,
 		}
 	}
 
-	/*
-	 * Fall back to reads:
-	 */
 	if (cache_op == -1)
 		cache_op = PERF_COUNT_HW_CACHE_OP_READ;
 
-	/*
-	 * Fall back to accesses:
-	 */
 	if (cache_result == -1)
 		cache_result = PERF_COUNT_HW_CACHE_RESULT_ACCESS;
 
@@ -590,7 +572,7 @@ parse_breakpoint_type(const char *type, struct perf_event_attr *attr)
 		}
 	}
 
-	if (!attr->bp_type) /* Default */
+	if (!attr->bp_type) 
 		attr->bp_type = HW_BREAKPOINT_R | HW_BREAKPOINT_W;
 
 	return 0;
@@ -608,10 +590,6 @@ int parse_events_add_breakpoint(struct list_head *list, int *idx,
 	if (parse_breakpoint_type(type, &attr))
 		return -EINVAL;
 
-	/*
-	 * We should find a nice way to override the access length
-	 * Provide some defaults for now
-	 */
 	if (attr.bp_type == HW_BREAKPOINT_X)
 		attr.bp_len = sizeof(long);
 	else
@@ -640,10 +618,6 @@ static int config_term(struct perf_event_attr *attr,
 		attr->sample_period = term->val.num;
 		break;
 	case PARSE_EVENTS__TERM_TYPE_BRANCH_SAMPLE_TYPE:
-		/*
-		 * TODO uncomment when the field is available
-		 * attr->branch_sample_type = term->val.num;
-		 */
 		break;
 	default:
 		return -EINVAL;
@@ -720,10 +694,6 @@ int parse_events_add_pmu(struct list_head *list, int *idx,
 
 	memset(&attr, 0, sizeof(attr));
 
-	/*
-	 * Configure hardcoded terms first, no need to check
-	 * return value when called with fail == 0 ;)
-	 */
 	config_attr(&attr, head_config, 0);
 
 	if (perf_pmu__config(pmu, &attr, head_config))
@@ -737,11 +707,6 @@ int parse_events_add_pmu(struct list_head *list, int *idx,
 void parse_events_update_lists(struct list_head *list_event,
 			       struct list_head *list_all)
 {
-	/*
-	 * Called for single event definition. Update the
-	 * 'all event' list, and reinit the 'signle event'
-	 * list, for next event definition.
-	 */
 	list_splice_tail(list_event, list_all);
 	INIT_LIST_HEAD(list_event);
 }
@@ -784,16 +749,6 @@ int parse_events_modifier(struct list_head *list, char *str)
 		++str;
 	}
 
-	/*
-	 * precise ip:
-	 *
-	 *  0 - SAMPLE_IP can have arbitrary skid
-	 *  1 - SAMPLE_IP must have constant skid
-	 *  2 - SAMPLE_IP requested to have 0 skid
-	 *  3 - SAMPLE_IP must have 0 skid
-	 *
-	 *  See also PERF_RECORD_MISC_EXACT_IP
-	 */
 	if (precise > 3)
 		return -EINVAL;
 
@@ -829,11 +784,6 @@ int parse_events(struct perf_evlist *evlist, const char *str, int unset __used)
 		return 0;
 	}
 
-	/*
-	 * There are 2 users - builtin-record and builtin-test objects.
-	 * Both call perf_evlist__delete in case of error, so we dont
-	 * need to bother.
-	 */
 	fprintf(stderr, "invalid or unsupported event: '%s'\n", str);
 	fprintf(stderr, "Run 'perf list' for a list of valid events\n");
 	return ret;
@@ -879,9 +829,6 @@ static const char * const event_type_descriptors[] = {
 	"Hardware breakpoint",
 };
 
-/*
- * Print the events from <debugfs_mount_point>/tracing/events
- */
 
 void print_tracepoint_events(const char *subsys_glob, const char *event_glob)
 {
@@ -923,9 +870,6 @@ void print_tracepoint_events(const char *subsys_glob, const char *event_glob)
 	closedir(sys_dir);
 }
 
-/*
- * Check whether event is in <debugfs_mount_point>/tracing/events
- */
 
 int is_valid_tracepoint(const char *event_string)
 {
@@ -991,7 +935,7 @@ int print_hwcache_events(const char *event_glob)
 
 	for (type = 0; type < PERF_COUNT_HW_CACHE_MAX; type++) {
 		for (op = 0; op < PERF_COUNT_HW_CACHE_OP_MAX; op++) {
-			/* skip invalid cache type */
+			
 			if (!is_cache_op_valid(type, op))
 				continue;
 
@@ -1011,9 +955,6 @@ int print_hwcache_events(const char *event_glob)
 	return printed;
 }
 
-/*
- * Print the help text for the event symbols:
- */
 void print_events(const char *event_glob)
 {
 	unsigned int i, type, prev_type = -1, printed = 0, ntypes_printed = 0;

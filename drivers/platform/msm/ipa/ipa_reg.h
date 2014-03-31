@@ -13,10 +13,6 @@
 #ifndef __IPA_REG_H__
 #define __IPA_REG_H__
 
-/*
- * IPA's BAM specific registers
- * Used for IPA HW 1.0 only
- */
 
 #define IPA_BAM_REG_BASE_OFST 0x00004000
 #define IPA_BAM_CNFG_BITS_OFST 0x7c
@@ -48,14 +44,8 @@
 
 #define IPA_HEAD_OF_LINE_BLOCK_EN_OFST 0x00000044
 
-/*
- * End of IPA 1.0 Registers
- */
 
 
-/*
-Common Registers
-*/
 #define IPA_REG_BASE_OFST 0x00020000
 #define IPA_COMP_SW_RESET_OFST 0x0000003c
 
@@ -154,9 +144,6 @@ Common Registers
 
 
 
-/*
- IPA HW 1.1 specific Registers
-*/
 
 #define IPA_FILTER_FILTER_DIS_BMSK 0x1
 #define IPA_FILTER_FILTER_DIS_SHFT 0x0

@@ -17,11 +17,6 @@
 #ifndef __ASM_ARCH_MSM_IRQS_H
 #define __ASM_ARCH_MSM_IRQS_H
 
-/*
- * 0-15:  STI/SGI (software triggered/generated interrupts)
- * 16-31: PPI (private peripheral interrupts)
- * 32+:   SPI (shared peripheral interrupts)
- */
 #define GIC_PPI_START 16
 #define GIC_SPI_START 32
 
@@ -52,8 +47,6 @@
 #include "irqs-8064.h"
 #endif
 
-/* For now, use the maximum number of interrupts until a pending GIC issue
- * is sorted out */
 #define NR_MSM_IRQS 288
 #define NR_GPIO_IRQS 152
 #define NR_PM8921_IRQS 256
@@ -103,7 +96,7 @@
 #if !defined(CONFIG_SPARSE_IRQ)
 
 #if defined(CONFIG_ARCH_MSM8974) || defined(CONFIG_ARCH_MPQ8092)
-#define NR_MSM_IRQS 1020 /* Should be 256 - but higher due to bug in sim */
+#define NR_MSM_IRQS 1020 
 #define NR_GPIO_IRQS 146
 #define NR_QPNP_IRQS 32768
 #define NR_BOARD_IRQS NR_QPNP_IRQS
@@ -131,6 +124,11 @@
 #if defined(CONFIG_PCI_MSI) && defined(CONFIG_MSM_PCIE)
 #define MSM_PCIE_MSI_INT(n) (NR_MSM_IRQS + NR_GPIO_IRQS + NR_PM8921_IRQS +  \
 		NR_PM8821_IRQS + NR_TABLA_IRQS + NR_GPIO_EXPANDER_IRQS + (n))
+#endif
+
+#ifdef CONFIG_HTC_POWER_DEBUG
+#define EE0_KRAIT_HLOS_SPMI_PERIPH_IRQ (GIC_SPI_START + 190)
+#define TLMM_MSM_SUMMARY_IRQ (GIC_SPI_START + 208)
 #endif
 
 #endif

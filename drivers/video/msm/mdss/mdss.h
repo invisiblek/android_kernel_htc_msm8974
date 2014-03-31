@@ -66,19 +66,6 @@ struct mdss_debug_inf {
 	void (*debug_enable_clock)(int on);
 };
 
-#define MDSS_IRQ_SUSPEND	-1
-#define MDSS_IRQ_RESUME		1
-#define MDSS_IRQ_REQ		0
-
-struct mdss_intr {
-	/* requested intr */
-	u32 req;
-	/* currently enabled intr */
-	u32 curr;
-	int state;
-	spinlock_t lock;
-};
-
 struct mdss_data_type {
 	u32 mdp_rev;
 	struct clk *mdp_clk[MDSS_MAX_CLK];
@@ -102,6 +89,7 @@ struct mdss_data_type {
 	u8 has_wfd_blk;
 	u8 has_wb_ad;
 
+	u32 rotator_ot_limit;
 	u32 mdp_irq_mask;
 	u32 mdp_hist_irq_mask;
 
@@ -119,9 +107,6 @@ struct mdss_data_type {
 	u32 smp_mb_per_pipe;
 
 	u32 rot_block_size;
-
-	u32 max_bw_low;
-	u32 max_bw_high;
 
 	struct mdss_hw_settings *hw_settings;
 
@@ -146,13 +131,9 @@ struct mdss_data_type {
 	u32 nintf;
 
 	u32 pp_bus_hdl;
-	struct mdss_mdp_ad *ad_off;
 	struct mdss_ad_info *ad_cfgs;
 	u32 nad_cfgs;
-	u32 nmax_concurrent_ad_hw;
 	struct workqueue_struct *ad_calc_wq;
-
-	struct mdss_intr hist_intr;
 
 	struct ion_client *iclient;
 	int iommu_attached;
@@ -211,4 +192,4 @@ static inline int mdss_get_iommu_domain(u32 type)
 
 	return mdss_res->iommu_map[type].domain_idx;
 }
-#endif /* MDSS_H */
+#endif 

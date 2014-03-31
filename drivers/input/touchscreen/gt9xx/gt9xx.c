@@ -55,7 +55,6 @@
 #define GOODIX_COORDS_ARR_SIZE	4
 #define MAX_BUTTONS		4
 
-/* HIGH: 0x28/0x29, LOW: 0xBA/0xBB */
 #define GTP_I2C_ADDRESS_HIGH	0x14
 #define GTP_I2C_ADDRESS_LOW	0x5D
 #define CFG_GROUP_LEN(p_cfg_grp)  (sizeof(p_cfg_grp) / sizeof(p_cfg_grp[0]))
@@ -69,8 +68,8 @@
 #define GOODIX_VIO_LOAD_MIN_UA	0
 #define GOODIX_VIO_LOAD_MAX_UA	10000
 
-#define RESET_DELAY_T3_US	200	/* T3: > 100us */
-#define RESET_DELAY_T4		20	/* T4: > 5ms */
+#define RESET_DELAY_T3_US	200	
+#define RESET_DELAY_T4		20	
 
 #define PHY_BUF_SIZE		32
 #define PROP_NAME_SIZE		24
@@ -124,21 +123,9 @@ static enum doze_status = DOZE_DISABLED;
 static s8 gtp_enter_doze(struct goodix_ts_data *ts);
 #endif
 bool init_done;
-static u8 chip_gt9xxs;  /* true if ic is gt9xxs, like gt915s */
+static u8 chip_gt9xxs;  
 u8 grp_cfg_version;
 
-/*******************************************************
-Function:
-	Read data from the i2c slave device.
-Input:
-	client:     i2c device.
-	buf[0~1]:   read start address.
-	buf[2~len-1]:   read data buffer.
-	len:    GTP_ADDR_LENGTH + read bytes count
-Output:
-	numbers of i2c_msgs to transfer:
-		2: succeed, otherwise: failed
-*********************************************************/
 int gtp_i2c_read(struct i2c_client *client, u8 *buf, int len)
 {
 	struct goodix_ts_data *ts = i2c_get_clientdata(client);
@@ -164,7 +151,7 @@ int gtp_i2c_read(struct i2c_client *client, u8 *buf, int len)
 	}
 	if (retries >= 5) {
 #if GTP_SLIDE_WAKEUP
-		/* reset chip would quit doze mode */
+		
 		if (DOZE_ENABLED == doze_status)
 			return ret;
 #endif
@@ -178,18 +165,6 @@ int gtp_i2c_read(struct i2c_client *client, u8 *buf, int len)
 	return ret;
 }
 
-/*******************************************************
-Function:
-	Write data to the i2c slave device.
-Input:
-	client:     i2c device.
-	buf[0~1]:   write start address.
-	buf[2~len-1]:   data buffer
-	len:    GTP_ADDR_LENGTH + write bytes count
-Output:
-	numbers of i2c_msgs to transfer:
-	1: succeed, otherwise: failed
-*********************************************************/
 int gtp_i2c_write(struct i2c_client *client, u8 *buf, int len)
 {
 	struct goodix_ts_data *ts = i2c_get_clientdata(client);
@@ -222,18 +197,6 @@ int gtp_i2c_write(struct i2c_client *client, u8 *buf, int len)
 	}
 	return ret;
 }
-/*******************************************************
-Function:
-	i2c read twice, compare the results
-Input:
-	client:  i2c device
-	addr:    operate address
-	rxbuf:   read data to store, if compare successful
-	len:     bytes to read
-Output:
-	FAIL:    read failed
-	SUCCESS: read successful
-*********************************************************/
 int gtp_i2c_read_dbl_check(struct i2c_client *client,
 			u16 addr, u8 *rxbuf, int len)
 {
@@ -266,15 +229,6 @@ int gtp_i2c_read_dbl_check(struct i2c_client *client,
 	}
 }
 
-/*******************************************************
-Function:
-	Send config data.
-Input:
-	client: i2c device.
-Output:
-	result of i2c write operation.
-	> 0: succeed, otherwise: failed
-*********************************************************/
 static int gtp_send_cfg(struct goodix_ts_data *ts)
 {
 	int ret;
@@ -299,14 +253,6 @@ static int gtp_send_cfg(struct goodix_ts_data *ts)
 	return ret;
 }
 
-/*******************************************************
-Function:
-	Disable irq function
-Input:
-	ts: goodix i2c_client private data
-Output:
-	None.
-*********************************************************/
 void gtp_irq_disable(struct goodix_ts_data *ts)
 {
 	unsigned long irqflags;
@@ -319,14 +265,6 @@ void gtp_irq_disable(struct goodix_ts_data *ts)
 	spin_unlock_irqrestore(&ts->irq_lock, irqflags);
 }
 
-/*******************************************************
-Function:
-	Enable irq function
-Input:
-	ts: goodix i2c_client private data
-Output:
-	None.
-*********************************************************/
 void gtp_irq_enable(struct goodix_ts_data *ts)
 {
 	unsigned long irqflags = 0;
@@ -339,18 +277,6 @@ void gtp_irq_enable(struct goodix_ts_data *ts)
 	spin_unlock_irqrestore(&ts->irq_lock, irqflags);
 }
 
-/*******************************************************
-Function:
-	Report touch point event
-Input:
-	ts: goodix i2c_client private data
-	id: trackId
-	x:  input x coordinate
-	y:  input y coordinate
-	w:  input pressure
-Output:
-	None.
-*********************************************************/
 static void gtp_touch_down(struct goodix_ts_data *ts, int id, int x, int y,
 		int w)
 {
@@ -366,14 +292,6 @@ static void gtp_touch_down(struct goodix_ts_data *ts, int id, int x, int y,
 	input_report_abs(ts->input_dev, ABS_MT_WIDTH_MAJOR, w);
 }
 
-/*******************************************************
-Function:
-	Report touch release event
-Input:
-	ts: goodix i2c_client private data
-Output:
-	None.
-*********************************************************/
 static void gtp_touch_up(struct goodix_ts_data *ts, int id)
 {
 	input_mt_slot(ts->input_dev, id);
@@ -382,14 +300,6 @@ static void gtp_touch_up(struct goodix_ts_data *ts, int id)
 
 
 
-/*******************************************************
-Function:
-	Goodix touchscreen work function
-Input:
-	work: work struct of goodix_workqueue
-Output:
-	None.
-*********************************************************/
 static void goodix_ts_work_func(struct work_struct *work)
 {
 	u8 end_cmd[3] = { GTP_READ_COOR_ADDR >> 8,
@@ -438,7 +348,7 @@ static void goodix_ts_work_func(struct work_struct *work)
 				input_report_key(
 					ts->input_dev, KEY_POWER, 0);
 				input_sync(ts->input_dev);
-				/* clear 0x814B */
+				
 				doze_buf[2] = 0x00;
 				gtp_i2c_write(ts->client, doze_buf, 3);
 			} else if (doze_buf[2] == 0xBB) {
@@ -449,7 +359,7 @@ static void goodix_ts_work_func(struct work_struct *work)
 				input_sync(ts->input_dev);
 				input_report_key(ts->input_dev, KEY_POWER, 0);
 				input_sync(ts->input_dev);
-				/* clear 0x814B*/
+				
 				doze_buf[2] = 0x00;
 				gtp_i2c_write(ts->client, doze_buf, 3);
 			} else if (0xC0 == (doze_buf[2] & 0xC0)) {
@@ -460,7 +370,7 @@ static void goodix_ts_work_func(struct work_struct *work)
 				input_sync(ts->input_dev);
 				input_report_key(ts->input_dev, KEY_POWER, 0);
 				input_sync(ts->input_dev);
-				/* clear 0x814B */
+				
 				doze_buf[2] = 0x00;
 				gtp_i2c_write(ts->client, doze_buf, 3);
 			} else {
@@ -616,15 +526,6 @@ exit_work_func:
 	return;
 }
 
-/*******************************************************
-Function:
-	Timer interrupt service routine for polling mode.
-Input:
-	timer: timer struct pointer
-Output:
-	Timer work mode.
-	HRTIMER_NORESTART: no restart mode
-*********************************************************/
 static enum hrtimer_restart goodix_ts_timer_handler(struct hrtimer *timer)
 {
 	struct goodix_ts_data
@@ -636,16 +537,6 @@ static enum hrtimer_restart goodix_ts_timer_handler(struct hrtimer *timer)
 	return HRTIMER_NORESTART;
 }
 
-/*******************************************************
-Function:
-	External interrupt service routine for interrupt mode.
-Input:
-	irq:  interrupt number.
-	dev_id: private data pointer
-Output:
-	Handle Result.
-	IRQ_HANDLED: interrupt handled successfully
-*********************************************************/
 static irqreturn_t goodix_ts_irq_handler(int irq, void *dev_id)
 {
 	struct goodix_ts_data *ts = dev_id;
@@ -656,14 +547,6 @@ static irqreturn_t goodix_ts_irq_handler(int irq, void *dev_id)
 
 	return IRQ_HANDLED;
 }
-/*******************************************************
-Function:
-	Synchronization.
-Input:
-	ms: synchronization time in millisecond.
-Output:
-	None.
-*******************************************************/
 void gtp_int_sync(struct goodix_ts_data *ts, int ms)
 {
 	gpio_direction_output(ts->pdata->irq_gpio, 0);
@@ -671,17 +554,9 @@ void gtp_int_sync(struct goodix_ts_data *ts, int ms)
 	gpio_direction_input(ts->pdata->irq_gpio);
 }
 
-/*******************************************************
-Function:
-	Reset chip.
-Input:
-	ms: reset time in millisecond, must >10ms
-Output:
-	None.
-*******************************************************/
 static void gtp_reset_guitar(struct goodix_ts_data *ts, int ms)
 {
-	/* This reset sequence will selcet I2C slave address */
+	
 	gpio_direction_output(ts->pdata->reset_gpio, 0);
 	msleep(ms);
 
@@ -705,14 +580,6 @@ static void gtp_reset_guitar(struct goodix_ts_data *ts, int ms)
 
 #if defined(CONFIG_HAS_EARLYSUSPEND) || defined(CONFIG_FB)
 #if GTP_SLIDE_WAKEUP
-/*******************************************************
-Function:
-	Enter doze mode for sliding wakeup.
-Input:
-	ts: goodix tp private data
-Output:
-	1: succeed, otherwise failed
-*******************************************************/
 static s8 gtp_enter_doze(struct goodix_ts_data *ts)
 {
 	int ret = -1;
@@ -753,12 +620,6 @@ static s8 gtp_enter_doze(struct goodix_ts_data *ts)
 	return ret;
 }
 #else
-/**
- * gtp_enter_sleep - Enter sleep mode
- * @ts: driver private data
- *
- * Returns zero on success, else an error.
- */
 static u8 gtp_enter_sleep(struct goodix_ts_data *ts)
 {
 	int ret = -1;
@@ -798,17 +659,8 @@ static u8 gtp_enter_sleep(struct goodix_ts_data *ts)
 		return ret;
 	}
 }
-#endif /* !GTP_SLIDE_WAKEUP */
+#endif 
 
-/*******************************************************
-Function:
-	Wakeup from sleep.
-Input:
-	ts: private data.
-Output:
-	Executive outcomes.
-	>0: succeed, otherwise: failed.
-*******************************************************/
 static s8 gtp_wakeup_sleep(struct goodix_ts_data *ts)
 {
 	u8 retry = 0;
@@ -845,11 +697,11 @@ static s8 gtp_wakeup_sleep(struct goodix_ts_data *ts)
 	} else {
 err_retry:
 #if GTP_SLIDE_WAKEUP
-		/* wakeup not by slide */
+		
 		if (DOZE_WAKEUP != doze_status)
 			gtp_reset_guitar(ts, 10);
 		else
-			/* wakeup by slide */
+			
 			doze_status = DOZE_DISABLED;
 #else
 		if (chip_gt9xxs == 1) {
@@ -880,17 +732,8 @@ err_retry:
 	}
 	return ret;
 }
-#endif /* !CONFIG_HAS_EARLYSUSPEND && !CONFIG_FB*/
+#endif 
 
-/*******************************************************
-Function:
-	Initialize gtp.
-Input:
-	ts: goodix private data
-Output:
-	Executive outcomes.
-	> =0: succeed, otherwise: failed
-*******************************************************/
 static int gtp_init_panel(struct goodix_ts_data *ts)
 {
 	struct i2c_client *client = ts->client;
@@ -954,14 +797,14 @@ static int gtp_init_panel(struct goodix_ts_data *ts)
 		&opr_buf[0], 1);
 	if (ret == SUCCESS) {
 		if (opr_buf[0] < 90) {
-			/* backup group config version */
+			
 			grp_cfg_version =
 			ts->pdata->config_data[sensor_id][GTP_ADDR_LENGTH];
 			ts->pdata->config_data[sensor_id][GTP_ADDR_LENGTH] =
 				0x00;
 			ts->fixed_cfg = 0;
 		} else {
-			/* treated as fixed config, not send config */
+			
 			dev_warn(&client->dev,
 				"Ic fixed config with config version(%d, 0x%02X)",
 				opr_buf[0], opr_buf[0]);
@@ -991,7 +834,7 @@ static int gtp_init_panel(struct goodix_ts_data *ts)
 		config_data[TRIGGER_LOC] &= 0xfe;
 	else if (GTP_INT_TRIGGER == 1)
 		config_data[TRIGGER_LOC] |= 0x01;
-#endif  /* !GTP_CUSTOM_CFG */
+#endif  
 
 	check_sum = 0;
 	for (i = GTP_ADDR_LENGTH; i < ts->gtp_cfg_len; i++)
@@ -999,7 +842,7 @@ static int gtp_init_panel(struct goodix_ts_data *ts)
 
 	config_data[ts->gtp_cfg_len] = (~check_sum) + 1;
 
-#else /* DRIVER NOT SEND CONFIG */
+#else 
 	ts->gtp_cfg_len = GTP_CONFIG_MAX_LENGTH;
 	ret = gtp_i2c_read(ts->client, config_data,
 			ts->gtp_cfg_len + GTP_ADDR_LENGTH);
@@ -1010,7 +853,7 @@ static int gtp_init_panel(struct goodix_ts_data *ts)
 		ts->abs_y_max = GTP_MAX_HEIGHT;
 		ts->int_trigger_type = GTP_INT_TRIGGER;
 	}
-#endif /* !DRIVER NOT SEND CONFIG */
+#endif 
 
 	if ((ts->abs_x_max == 0) && (ts->abs_y_max == 0)) {
 		ts->abs_x_max = (config_data[RESOLUTION_LOC + 1] << 8)
@@ -1027,16 +870,6 @@ static int gtp_init_panel(struct goodix_ts_data *ts)
 	return ret;
 }
 
-/*******************************************************
-Function:
-	Read firmware version
-Input:
-	client:  i2c device
-	version: buffer to keep ic firmware version
-Output:
-	read operation return.
-	0: succeed, otherwise: failed
-*******************************************************/
 static int gtp_read_fw_version(struct i2c_client *client, u16 *version)
 {
 	int ret = 0;
@@ -1054,21 +887,12 @@ static int gtp_read_fw_version(struct i2c_client *client, u16 *version)
 
 	return ret;
 }
-/*******************************************************
-Function:
-	Read and check chip id.
-Input:
-	client:  i2c device
-Output:
-	read operation return.
-	0: succeed, otherwise: failed
-*******************************************************/
 static int gtp_check_product_id(struct i2c_client *client)
 {
 	int ret = 0;
 	char product_id[GTP_PRODUCT_ID_MAXSIZE];
 	struct goodix_ts_data *ts = i2c_get_clientdata(client);
-	/* 04 bytes are used for the Product-id in the register space.*/
+	
 	u8 buf[GTP_PRODUCT_ID_BUFFER_MAXSIZE] =	{
 		GTP_REG_PRODUCT_ID >> 8, GTP_REG_PRODUCT_ID & 0xff };
 
@@ -1079,12 +903,12 @@ static int gtp_check_product_id(struct i2c_client *client)
 	}
 
 	if (buf[5] == 0x00) {
-		/* copy (GTP_PRODUCT_ID_MAXSIZE - 1) from buffer. Ex: 915 */
+		
 		strlcpy(product_id, &buf[2], GTP_PRODUCT_ID_MAXSIZE - 1);
 	} else {
 		if (buf[5] == 'S' || buf[5] == 's')
 			chip_gt9xxs = 1;
-		/* copy GTP_PRODUCT_ID_MAXSIZE from buffer. Ex: 915s */
+		
 		strlcpy(product_id, &buf[2], GTP_PRODUCT_ID_MAXSIZE);
 	}
 
@@ -1097,15 +921,6 @@ static int gtp_check_product_id(struct i2c_client *client)
 	return ret;
 }
 
-/*******************************************************
-Function:
-	I2c test Function.
-Input:
-	client:i2c client.
-Output:
-	Executive outcomes.
-	2: succeed, otherwise failed.
-*******************************************************/
 static int gtp_i2c_test(struct i2c_client *client)
 {
 	u8 buf[3] = { GTP_REG_CONFIG_DATA >> 8, GTP_REG_CONFIG_DATA & 0xff };
@@ -1122,15 +937,6 @@ static int gtp_i2c_test(struct i2c_client *client)
 	return ret;
 }
 
-/*******************************************************
-Function:
-	Request gpio(INT & RST) ports.
-Input:
-	ts: private data.
-Output:
-	Executive outcomes.
-	= 0: succeed, != 0: failed
-*******************************************************/
 static int gtp_request_io_port(struct goodix_ts_data *ts)
 {
 	struct i2c_client *client = ts->client;
@@ -1177,11 +983,6 @@ static int gtp_request_io_port(struct goodix_ts_data *ts)
 		ret = -EINVAL;
 		goto err_free_irq_gpio;
 	}
-	/* IRQ GPIO is an input signal, but we are setting it to output
-	  * direction and pulling it down, to comply with power up timing
-	  * requirements, mentioned in power up timing section of device
-	  * datasheet.
-	  */
 	ret = gpio_direction_output(pdata->irq_gpio, 0);
 	if (ret)
 		dev_warn(&client->dev,
@@ -1203,15 +1004,6 @@ err_pwr_off:
 	return ret;
 }
 
-/*******************************************************
-Function:
-	Request interrupt.
-Input:
-	ts: private data.
-Output:
-	Executive outcomes.
-	0: succeed, -1: failed.
-*******************************************************/
 static int gtp_request_irq(struct goodix_ts_data *ts)
 {
 	int ret;
@@ -1240,15 +1032,6 @@ static int gtp_request_irq(struct goodix_ts_data *ts)
 	}
 }
 
-/*******************************************************
-Function:
-	Request input device Function.
-Input:
-	ts:private data.
-Output:
-	Executive outcomes.
-	0: succeed, otherwise: failed.
-*******************************************************/
 static int gtp_request_input_dev(struct goodix_ts_data *ts)
 {
 	int ret;
@@ -1268,7 +1051,7 @@ static int gtp_request_input_dev(struct goodix_ts_data *ts)
 		BIT_MASK(EV_SYN) | BIT_MASK(EV_KEY) | BIT_MASK(EV_ABS) ;
 	set_bit(BTN_TOOL_FINGER, ts->input_dev->keybit);
 	__set_bit(INPUT_PROP_DIRECT, ts->input_dev->propbit);
-	input_mt_init_slots(ts->input_dev, 10);/* in case of "out of memory" */
+	input_mt_init_slots(ts->input_dev, 10);
 
 #if GTP_HAVE_TOUCH_KEY
 	for (index = 0; index < GTP_MAX_KEY_NUM; index++) {
@@ -1282,7 +1065,7 @@ static int gtp_request_input_dev(struct goodix_ts_data *ts)
 #endif
 
 #if GTP_WITH_PEN
-	/* pen support */
+	
 	__set_bit(BTN_TOOL_PEN, ts->input_dev->keybit);
 	__set_bit(INPUT_PROP_DIRECT, ts->input_dev->propbit);
 	__set_bit(INPUT_PROP_POINTER, ts->input_dev->propbit);
@@ -1333,12 +1116,6 @@ static int reg_set_optimum_mode_check(struct regulator *reg, int load_uA)
 		regulator_set_optimum_mode(reg, load_uA) : 0;
 }
 
-/**
- * goodix_power_on - Turn device power ON
- * @ts: driver private data
- *
- * Returns zero on success, else an error.
- */
 static int goodix_power_on(struct goodix_ts_data *ts)
 {
 	int ret;
@@ -1438,12 +1215,6 @@ err_set_opt_avdd:
 	return ret;
 }
 
-/**
- * goodix_power_off - Turn device power OFF
- * @ts: driver private data
- *
- * Returns zero on success, else an error.
- */
 static int goodix_power_off(struct goodix_ts_data *ts)
 {
 	int ret;
@@ -1490,12 +1261,6 @@ static int goodix_power_off(struct goodix_ts_data *ts)
 	return 0;
 }
 
-/**
- * goodix_power_init - Initialize device power
- * @ts: driver private data
- *
- * Returns zero on success, else an error.
- */
 static int goodix_power_init(struct goodix_ts_data *ts)
 {
 	int ret;
@@ -1524,12 +1289,6 @@ static int goodix_power_init(struct goodix_ts_data *ts)
 	return 0;
 }
 
-/**
- * goodix_power_deinit - Deinitialize device power
- * @ts: driver private data
- *
- * Returns zero on success, else an error.
- */
 static int goodix_power_deinit(struct goodix_ts_data *ts)
 {
 	regulator_put(ts->vdd);
@@ -1649,7 +1408,7 @@ static int goodix_parse_dt(struct device *dev,
 
 	pdata->enable_power_off = of_property_read_bool(np,
 						"goodix,enable-power-off");
-	/* reset, irq gpio info */
+	
 	pdata->reset_gpio = of_get_named_gpio_flags(np, "reset-gpios",
 				0, &pdata->reset_gpio_flags);
 	if (pdata->reset_gpio < 0)
@@ -1719,16 +1478,6 @@ static int goodix_parse_dt(struct device *dev,
 	return 0;
 }
 
-/*******************************************************
-Function:
-	I2c probe.
-Input:
-	client: i2c device struct.
-	id: device id.
-Output:
-	Executive outcomes.
-	0: succeed.
-*******************************************************/
 
 static int goodix_ts_probe(struct i2c_client *client,
 			   const struct i2c_device_id *id)
@@ -1778,9 +1527,6 @@ static int goodix_ts_probe(struct i2c_client *client,
 	memset(ts, 0, sizeof(*ts));
 	ts->client = client;
 	ts->pdata = pdata;
-	/* For 2.6.39 & later use spin_lock_init(&ts->irq_lock)
-	 * For 2.6.39 & before, use ts->irq_lock = SPIN_LOCK_UNLOCKED
-	 */
 	spin_lock_init(&ts->irq_lock);
 	i2c_set_clientdata(client, ts);
 	ts->gtp_rawdiff_mode = 0;
@@ -1930,14 +1676,6 @@ exit_free_client_data:
 	return ret;
 }
 
-/*******************************************************
-Function:
-	Goodix touchscreen driver release function.
-Input:
-	client: i2c device struct.
-Output:
-	Executive outcomes. 0---succeed.
-*******************************************************/
 static int goodix_ts_remove(struct i2c_client *client)
 {
 	struct goodix_ts_data *ts = i2c_get_clientdata(client);
@@ -1995,14 +1733,6 @@ static int goodix_ts_remove(struct i2c_client *client)
 }
 
 #if defined(CONFIG_HAS_EARLYSUSPEND) || defined(CONFIG_FB)
-/*******************************************************
-Function:
-	Early suspend function.
-Input:
-	h: early_suspend struct.
-Output:
-	None.
-*******************************************************/
 static int goodix_ts_suspend(struct device *dev)
 {
 	struct goodix_ts_data *ts = dev_get_drvdata(dev);
@@ -2031,23 +1761,12 @@ static int goodix_ts_suspend(struct device *dev)
 #endif
 	if (ret < 0)
 		dev_err(&ts->client->dev, "GTP early suspend failed.\n");
-	/* to avoid waking up while not sleeping,
-	 * delay 48 + 10ms to ensure reliability
-	 */
 	msleep(58);
 	mutex_unlock(&ts->lock);
 
 	return ret;
 }
 
-/*******************************************************
-Function:
-	Late resume function.
-Input:
-	h: early_suspend struct.
-Output:
-	None.
-*******************************************************/
 static int goodix_ts_resume(struct device *dev)
 {
 	struct goodix_ts_data *ts = dev_get_drvdata(dev);
@@ -2099,14 +1818,6 @@ static int fb_notifier_callback(struct notifier_block *self,
 	return 0;
 }
 #elif defined(CONFIG_HAS_EARLYSUSPEND)
-/*******************************************************
-Function:
-	Early suspend function.
-Input:
-	h: early_suspend struct.
-Output:
-	None.
-*******************************************************/
 static void goodix_ts_early_suspend(struct early_suspend *h)
 {
 	struct goodix_ts_data *ts;
@@ -2116,14 +1827,6 @@ static void goodix_ts_early_suspend(struct early_suspend *h)
 	return;
 }
 
-/*******************************************************
-Function:
-	Late resume function.
-Input:
-	h: early_suspend struct.
-Output:
-	None.
-*******************************************************/
 static void goodix_ts_late_resume(struct early_suspend *h)
 {
 	struct goodix_ts_data *ts;
@@ -2133,25 +1836,16 @@ static void goodix_ts_late_resume(struct early_suspend *h)
 	return;
 }
 #endif
-#endif /* !CONFIG_HAS_EARLYSUSPEND && !CONFIG_FB*/
+#endif 
 
 #if GTP_ESD_PROTECT
-/*******************************************************
-Function:
-	switch on & off esd delayed work
-Input:
-	client:  i2c device
-	on:	SWITCH_ON / SWITCH_OFF
-Output:
-	void
-*********************************************************/
 void gtp_esd_switch(struct i2c_client *client, int on)
 {
 	struct goodix_ts_data *ts;
 
 	ts = i2c_get_clientdata(client);
 	if (SWITCH_ON == on) {
-		/* switch on esd  */
+		
 		if (!ts->esd_running) {
 			ts->esd_running = 1;
 			dev_dbg(&client->dev, "Esd started\n");
@@ -2159,7 +1853,7 @@ void gtp_esd_switch(struct i2c_client *client, int on)
 				&gtp_esd_check_work, GTP_ESD_CHECK_CIRCLE);
 		}
 	} else {
-		/* switch off esd */
+		
 		if (ts->esd_running) {
 			ts->esd_running = 0;
 			dev_dbg(&client->dev, "Esd cancelled\n");
@@ -2168,18 +1862,9 @@ void gtp_esd_switch(struct i2c_client *client, int on)
 	}
 }
 
-/*******************************************************
-Function:
-	Initialize external watchdog for esd protect
-Input:
-	client:  i2c device.
-Output:
-	result of i2c write operation.
-		1: succeed, otherwise: failed
-*********************************************************/
 static int gtp_init_ext_watchdog(struct i2c_client *client)
 {
-	/* in case of recursively reset by calling gtp_i2c_write*/
+	
 	struct i2c_msg msg;
 	u8 opr_buffer[4] = {0x80, 0x40, 0xAA, 0xAA};
 	int ret;
@@ -2201,15 +1886,6 @@ static int gtp_init_ext_watchdog(struct i2c_client *client)
 	return 0;
 }
 
-/*******************************************************
-Function:
-	Esd protect function.
-	Added external watchdog by meta, 2013/03/07
-Input:
-	work: delayed work
-Output:
-	None.
-*******************************************************/
 static void gtp_esd_check_func(struct work_struct *work)
 {
 	s32 i;
@@ -2233,15 +1909,15 @@ static void gtp_esd_check_func(struct work_struct *work)
 		ret = gtp_i2c_read(ts->client, test, 4);
 
 		if ((ret < 0)) {
-			/* IC works abnormally..*/
+			
 			continue;
 		} else {
 			if ((test[2] == 0xAA) || (test[3] != 0xAA)) {
-				/* IC works abnormally..*/
+				
 				i = 3;
 				break;
 			} else {
-				/* IC works normally, Write 0x8040 0xAA*/
+				
 				test[2] = 0xAA;
 				gtp_i2c_write(ts->client, test, 3);
 				break;
@@ -2304,14 +1980,6 @@ static struct i2c_driver goodix_ts_driver = {
 	},
 };
 
-/*******************************************************
-Function:
-    Driver Install function.
-Input:
-    None.
-Output:
-    Executive Outcomes. 0---succeed.
-********************************************************/
 static int __devinit goodix_ts_init(void)
 {
 	int ret;
@@ -2324,14 +1992,6 @@ static int __devinit goodix_ts_init(void)
 	return ret;
 }
 
-/*******************************************************
-Function:
-	Driver uninstall function.
-Input:
-	None.
-Output:
-	Executive Outcomes. 0---succeed.
-********************************************************/
 static void __exit goodix_ts_exit(void)
 {
 	i2c_del_driver(&goodix_ts_driver);

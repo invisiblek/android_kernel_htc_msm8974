@@ -201,11 +201,6 @@ struct msm_bus_board_algorithm {
 	int (*get_iid)(int id);
 };
 
-/**
- * Used to store the list of fabrics and other info to be
- * maintained outside the fabric structure.
- * Used while calculating path, and to find fabric ptrs
- */
 struct msm_bus_fabnodeinfo {
 	struct list_head list;
 	struct msm_bus_inode_info *info;
@@ -300,4 +295,4 @@ static inline struct msm_bus_fabric_registration
 }
 #endif
 
-#endif /*_ARCH_ARM_MACH_MSM_BUS_CORE_H*/
+#endif 

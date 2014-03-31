@@ -10,10 +10,6 @@
  * GNU General Public License for more details.
  */
 
-/*
- * SDIO-Abstraction-Layer Test Module.
- *
- */
 
 #include <linux/module.h>
 #include <linux/device.h>
@@ -35,12 +31,12 @@
 
 #include <linux/kthread.h>
 enum lpm_test_msg_type {
-	LPM_NO_MSG,	/* 0 */
-	LPM_MSG_SEND,	/* 1 */
-	LPM_MSG_REC,	/* 2 */
-	LPM_SLEEP,	/* 3 */
-	LPM_WAKEUP,	/* 4 */
-	LPM_NOTIFY	/* 5 */
+	LPM_NO_MSG,	
+	LPM_MSG_SEND,	
+	LPM_MSG_REC,	
+	LPM_SLEEP,	
+	LPM_WAKEUP,	
+	LPM_NOTIFY	
 };
 
 #define LPM_NO_MSG_NAME "LPM No Event"
@@ -49,7 +45,6 @@ enum lpm_test_msg_type {
 #define LPM_SLEEP_NAME "LPM Sleep Event"
 #define LPM_WAKEUP_NAME "LPM Wakeup Event"
 
-/** Module name string */
 #define TEST_MODULE_NAME "sdio_al_test"
 
 #define TEST_SIGNATURE 0x12345678
@@ -92,9 +87,6 @@ enum sdio_test_case_type {
 	SDIO_TEST_HOST_SENDER_NO_LP,
 	SDIO_TEST_CLOSE_CHANNEL,
 	SDIO_TEST_A2_VALIDATION,
-	/* The following tests are not part of the 9k tests and should be
-	 * kept last in case new tests are added
-	 */
 	SDIO_TEST_PERF,
 	SDIO_TEST_RTT,
 	SDIO_TEST_MODEM_RESET,
@@ -225,7 +217,7 @@ struct test_channel {
 	int channel_mask_id;
 	int modem_result_per_chan;
 	int notify_counter_per_chan;
-	int max_burst_size;        /* number of writes before close/open */
+	int max_burst_size;        
 	int card_removed;
 };
 
@@ -308,7 +300,6 @@ struct test_context {
 	unsigned int lpm_pseudo_random_seed;
 };
 
-/* FORWARD DECLARATIONS */
 static int set_params_loopback_9k(struct test_channel *tch);
 static int set_params_smem_test(struct test_channel *tch);
 static int set_params_a2_validation(struct test_channel *tch);
@@ -331,10 +322,6 @@ static void notify(void *priv, unsigned channel_event);
 static int sdio_smem_open(struct sdio_smem_client *sdio_smem);
 #endif
 
-/*
- * Seed for pseudo random time sleeping in Random LPM test.
- * If not set, current time in jiffies is used.
- */
 static unsigned int seed;
 module_param(seed, int, 0);
 static struct test_context *test_ctx;
@@ -386,10 +373,10 @@ static int sdio_al_test_extract_number(const char __user *buf,
 		return -EINVAL;
 	}
 
-	/* adding null termination to the string */
+	
 	local_buf[count] = '\0';
 
-	/* stripping leading and trailing white spaces */
+	
 	start = strstrip(local_buf);
 
 	ret = kstrtoint(start, 10, &number);
@@ -426,7 +413,6 @@ static void sdio_al_test_cleanup_channels(void)
 	return;
 }
 
-/* RPC SENDER TEST */
 static ssize_t rpc_sender_test_write(struct file *file,
 				      const char __user *buf,
 				      size_t count,
@@ -490,7 +476,6 @@ const struct file_operations rpc_sender_test_ops = {
 	.read = rpc_sender_test_read,
 };
 
-/* RPC, QMI & DIAG SENDER TEST */
 static ssize_t rpc_qmi_diag_sender_test_write(struct file *file,
 					       const char __user *buf,
 					       size_t count,
@@ -557,7 +542,6 @@ const struct file_operations rpc_qmi_diag_sender_test_ops = {
 	.read = rpc_qmi_diag_sender_test_read,
 };
 
-/* SMEM TEST */
 static ssize_t smem_test_write(struct file *file,
 				const char __user *buf,
 				size_t count,
@@ -621,7 +605,6 @@ const struct file_operations smem_test_ops = {
 	.read = smem_test_read,
 };
 
-/* SMEM & RPC TEST */
 static ssize_t smem_rpc_test_write(struct file *file,
 				    const char __user *buf,
 				    size_t count,
@@ -686,7 +669,6 @@ const struct file_operations smem_rpc_test_ops = {
 	.read = smem_rpc_test_read,
 };
 
-/* RMNET A2 VALIDATION TEST */
 static ssize_t rmnet_a2_validation_test_write(struct file *file,
 						const char __user *buf,
 						size_t count,
@@ -753,7 +735,6 @@ const struct file_operations rmnet_a2_validation_test_ops = {
 	.read = rmnet_a2_validation_test_read,
 };
 
-/* DUN A2 VALIDATION TEST */
 static ssize_t dun_a2_validation_test_write(struct file *file,
 						const char __user *buf,
 						size_t count,
@@ -820,7 +801,6 @@ const struct file_operations dun_a2_validation_test_ops = {
 	.read = dun_a2_validation_test_read,
 };
 
-/* RMNET A2 PERFORMANCE TEST */
 static ssize_t rmnet_a2_perf_test_write(struct file *file,
 					 const char __user *buf,
 					 size_t count,
@@ -884,7 +864,6 @@ const struct file_operations rmnet_a2_perf_test_ops = {
 	.read = rmnet_a2_perf_test_read,
 };
 
-/* DUN A2 PERFORMANCE TEST */
 static ssize_t dun_a2_perf_test_write(struct file *file,
 				       const char __user *buf,
 				       size_t count,
@@ -948,7 +927,6 @@ const struct file_operations dun_a2_perf_test_ops = {
 	.read = dun_a2_perf_test_read,
 };
 
-/* CSVT A2 PERFORMANCE TEST */
 static ssize_t csvt_a2_perf_test_write(struct file *file,
 					const char __user *buf,
 					size_t count,
@@ -1016,7 +994,6 @@ const struct file_operations csvt_a2_perf_test_ops = {
 	.read = csvt_a2_perf_test_read,
 };
 
-/* RMNET DUN A2 PERFORMANCE TEST */
 static ssize_t rmnet_dun_a2_perf_test_write(struct file *file,
 					     const char __user *buf,
 					     size_t count,
@@ -1081,7 +1058,6 @@ const struct file_operations rmnet_dun_a2_perf_test_ops = {
 	.read = rmnet_dun_a2_perf_test_read,
 };
 
-/* RPC SENDER & RMNET A2 PERFORMANCE TEST */
 static ssize_t rpc_sender_rmnet_a2_perf_test_write(struct file *file,
 						    const char __user *buf,
 						    size_t count,
@@ -1147,7 +1123,6 @@ const struct file_operations rpc_sender_rmnet_a2_perf_test_ops = {
 	.read = rpc_sender_rmnet_a2_perf_test_read,
 };
 
-/* ALL CHANNELS TEST */
 static ssize_t all_channels_test_write(struct file *file,
 					const char __user *buf,
 					size_t count,
@@ -1217,7 +1192,6 @@ const struct file_operations all_channels_test_ops = {
 	.read = all_channels_test_read,
 };
 
-/* HOST SENDER NO LP DIAG TEST */
 static ssize_t host_sender_no_lp_diag_test_write(struct file *file,
 						  const char __user *buf,
 						  size_t count,
@@ -1281,7 +1255,6 @@ const struct file_operations host_sender_no_lp_diag_test_ops = {
 	.read = host_sender_no_lp_diag_test_read,
 };
 
-/* HOST SENDER NO LP DIAG, RPC TEST */
 static ssize_t host_sender_no_lp_diag_rpc_test_write(
 						 struct file *file,
 						 const char __user *buf,
@@ -1349,7 +1322,6 @@ const struct file_operations host_sender_no_lp_diag_rpc_test_ops = {
 	.read = host_sender_no_lp_diag_rpc_test_read,
 };
 
-/* RMNET SMALL PACKETS TEST */
 static ssize_t rmnet_small_packets_test_write(struct file *file,
 					       const char __user *buf,
 					       size_t count,
@@ -1413,7 +1385,6 @@ const struct file_operations rmnet_small_packets_test_ops = {
 	.read = rmnet_small_packets_test_read,
 };
 
-/* RMNET RTT TEST */
 static ssize_t rmnet_rtt_test_write(struct file *file,
 				     const char __user *buf,
 				     size_t count,
@@ -1477,7 +1448,6 @@ const struct file_operations rmnet_rtt_test_ops = {
 	.read = rmnet_rtt_test_read,
 };
 
-/* CSVT RTT TEST */
 static ssize_t csvt_rtt_test_write(struct file *file,
 				    const char __user *buf,
 				    size_t count,
@@ -1543,7 +1513,6 @@ const struct file_operations csvt_rtt_test_ops = {
 	.read = csvt_rtt_test_read,
 };
 
-/* MODEM RESET RPC TEST */
 static ssize_t modem_reset_rpc_test_write(struct file *file,
 					   const char __user *buf,
 					   size_t count,
@@ -1607,7 +1576,6 @@ const struct file_operations modem_reset_rpc_test_ops = {
 	.read = modem_reset_rpc_test_read,
 };
 
-/* MODEM RESET RMNET TEST */
 static ssize_t modem_reset_rmnet_test_write(struct file *file,
 					     const char __user *buf,
 					     size_t count,
@@ -1671,7 +1639,6 @@ const struct file_operations modem_reset_rmnet_test_ops = {
 	.read = modem_reset_rmnet_test_read,
 };
 
-/* MODEM RESET - CHANNELS IN 4BIT DEVICE TEST */
 static ssize_t modem_reset_channels_4bit_dev_test_write(
 						struct file *file,
 						const char __user *buf,
@@ -1740,7 +1707,6 @@ const struct file_operations modem_reset_channels_4bit_dev_test_ops = {
 	.read = modem_reset_channels_4bit_dev_test_read,
 };
 
-/* MODEM RESET - CHANNELS IN 8BIT DEVICE TEST */
 static ssize_t modem_reset_channels_8bit_dev_test_write(
 						struct file *file,
 						const char __user *buf,
@@ -1808,7 +1774,6 @@ const struct file_operations modem_reset_channels_8bit_dev_test_ops = {
 	.read = modem_reset_channels_8bit_dev_test_read,
 };
 
-/* MODEM RESET - ALL CHANNELS TEST */
 static ssize_t modem_reset_all_channels_test_write(struct file *file,
 						    const char __user *buf,
 						    size_t count,
@@ -1876,7 +1841,6 @@ const struct file_operations modem_reset_all_channels_test_ops = {
 	.read = modem_reset_all_channels_test_read,
 };
 
-/* HOST SENDER WITH OPEN/CLOSE TEST */
 static ssize_t open_close_test_write(struct file *file,
 						   const char __user *buf,
 						   size_t count,
@@ -1961,7 +1925,6 @@ const struct file_operations open_close_test_ops = {
 	.read = open_close_test_read,
 };
 
-/* HOST SENDER WITH OPEN/CLOSE FOR DUN & RMNET TEST */
 static ssize_t open_close_dun_rmnet_test_write(struct file *file,
 						   const char __user *buf,
 						   size_t count,
@@ -2032,7 +1995,6 @@ const struct file_operations open_close_dun_rmnet_test_ops = {
 	.read = open_close_dun_rmnet_test_read,
 };
 
-/* CLOSE CHANNEL & LPM TEST HOST WAKES THE CLIENT TEST */
 static ssize_t close_chan_lpm_test_write(struct file *file,
 					  const char __user *buf,
 					  size_t count,
@@ -2116,7 +2078,6 @@ const struct file_operations close_chan_lpm_test_ops = {
 	.read = close_chan_lpm_test_read,
 };
 
-/* LPM TEST FOR DEVICE 1. CLIENT WAKES THE HOST TEST */
 static ssize_t lpm_test_client_wakes_host_test_write(struct file *file,
 						      const char __user *buf,
 						      size_t count,
@@ -2185,7 +2146,6 @@ const struct file_operations lpm_test_client_wakes_host_test_ops = {
 	.read = lpm_test_client_wakes_host_test_read,
 };
 
-/* LPM TEST FOR DEVICE 1. HOST WAKES THE CLIENT TEST */
 static ssize_t lpm_test_host_wakes_client_test_write(struct file *file,
 						      const char __user *buf,
 						      size_t count,
@@ -2254,7 +2214,6 @@ const struct file_operations lpm_test_host_wakes_client_test_ops = {
 	.read = lpm_test_host_wakes_client_test_read,
 };
 
-/* LPM TEST RANDOM, SINGLE CHANNEL TEST */
 static ssize_t lpm_test_random_single_channel_test_write(
 						struct file *file,
 						const char __user *buf,
@@ -2334,7 +2293,6 @@ const struct file_operations lpm_test_random_single_channel_test_ops = {
 	.read = lpm_test_random_single_channel_test_read,
 };
 
-/* LPM TEST RANDOM, MULTI CHANNEL TEST */
 static ssize_t lpm_test_random_multi_channel_test_write(
 						struct file *file,
 						const char __user *buf,
@@ -2696,9 +2654,6 @@ static int channel_name_to_id(char *name)
 	return SDIO_MAX_CHANNELS;
 }
 
-/**
- * Allocate and add SDIO_SMEM platform device
- */
 #ifdef CONFIG_MSM_SDIO_SMEM
 static int add_sdio_smem(void)
 {
@@ -2788,9 +2743,6 @@ static int close_sdio_ch(struct test_channel *tch)
 	return ret;
 }
 
-/**
- * Config message
- */
 
 static void send_config_msg(struct test_channel *test_ch)
 {
@@ -2809,7 +2761,7 @@ static void send_config_msg(struct test_channel *test_ch)
 
 	pr_info(TEST_MODULE_NAME ":Sending the config message.\n");
 
-	/* wait for data ready event */
+	
 	write_avail = sdio_write_avail(test_ch->ch);
 	pr_debug(TEST_MODULE_NAME ":write_avail=%d\n", write_avail);
 	if (write_avail < size) {
@@ -2834,9 +2786,6 @@ static void send_config_msg(struct test_channel *test_ch)
 		       __func__);
 }
 
-/**
- * Loopback Test
- */
 static void loopback_test(struct test_channel *test_ch)
 {
 	int ret = 0 ;
@@ -2851,7 +2800,7 @@ static void loopback_test(struct test_channel *test_ch)
 		}
 
 		TEST_DBG(TEST_MODULE_NAME "--LOOPBACK WAIT FOR EVENT--.\n");
-		/* wait for data ready event */
+		
 		wait_event(test_ch->wait_q,
 			   atomic_read(&test_ch->rx_notify_count));
 		atomic_dec(&test_ch->rx_notify_count);
@@ -2893,12 +2842,9 @@ static void loopback_test(struct test_channel *test_ch)
 		TEST_DBG(TEST_MODULE_NAME
 			 ":loopback total tx bytes = 0x%x.\n",
 			 test_ch->tx_bytes);
-	} /* end of while */
+	} 
 }
 
-/**
- * Check if all tests completed
- */
 static void check_test_completion(void)
 {
 	int i;
@@ -2929,7 +2875,6 @@ static int pseudo_random_seed(unsigned int *seed_number)
 	return (int)((*seed_number / (64*1024)) % 500);
 }
 
-/* this function must be locked before accessing it */
 static void lpm_test_update_entry(struct test_channel *tch,
 				  enum lpm_test_msg_type msg_type,
 				   char *msg_name,
@@ -3111,7 +3056,7 @@ static int check_random_lpm_test_array(struct sdio_test_device *test_dev)
 
 		if ((test_dev->lpm_arr[i].msg_type == LPM_MSG_SEND) ||
 		     (test_dev->lpm_arr[i].msg_type == LPM_MSG_REC)) {
-			/* find the next message in the array */
+			
 			arr_ind = test_dev->next_avail_entry_in_array;
 			for (j = i+1; j < arr_ind; j++) {
 				if ((test_dev->lpm_arr[j].msg_type ==
@@ -3243,20 +3188,12 @@ static int lpm_test_main_task(void *ptr)
 
 		memcpy((void *)&lpm_msg, test_ch->buf, sizeof(lpm_msg));
 
-		/*
-		 * when reading from channel, we want to turn off the bit
-		 * mask that implies that there is pending data on that channel
-		 */
 		if (test_ch->test_device != NULL) {
 			spin_lock_irqsave(&test_dev->lpm_array_lock,
 					  test_dev->lpm_array_lock_flags);
 
 			test_ch->notify_counter_per_chan--;
 
-			/*
-			 * if the channel has no pending data, turn off the
-			 * pending data bit mask of the channel
-			 */
 			if (test_ch->notify_counter_per_chan == 0) {
 				test_ch->test_device->read_avail_mask =
 					test_ch->test_device->read_avail_mask &
@@ -3278,26 +3215,17 @@ static int lpm_test_main_task(void *ptr)
 		"packets from the modem %s. Waiting for result_msg",
 		__func__, test_ch->config_msg.num_packets, test_ch->name);
 
-	/* Wait for the resault message from the modem */
+	
 	test_ch->modem_result_per_chan = wait_for_result_msg(test_ch);
 
-	/*
-	 * the DEVICE modem result is a failure if one of the channels on
-	 * that device, got modem_result = 0. this is why we bitwise "AND" each
-	 * time another channel completes its task
-	 */
 	test_dev->modem_result_per_dev &= test_ch->modem_result_per_chan;
 
-	/*
-	 * when reading from channel, we want to turn off the bit
-	 * mask that implies that there is pending data on that channel
-	 */
 	spin_lock_irqsave(&test_dev->lpm_array_lock,
 					  test_dev->lpm_array_lock_flags);
 
 	test_dev->open_channels_counter_to_recv--;
 
-	/* turning off the read_avail bit of the channel */
+	
 	test_ch->test_device->read_avail_mask =
 		test_ch->test_device->read_avail_mask &
 		~test_ch->channel_mask_id;
@@ -3305,7 +3233,7 @@ static int lpm_test_main_task(void *ptr)
 	spin_unlock_irqrestore(&test_dev->lpm_array_lock,
 					       test_dev->lpm_array_lock_flags);
 
-	/* Wait for all the packets to be sent to the modem */
+	
 	while (1) {
 		spin_lock_irqsave(&test_dev->lpm_array_lock,
 				  test_dev->lpm_array_lock_flags);
@@ -3328,10 +3256,6 @@ static int lpm_test_main_task(void *ptr)
 		msleep(60);
 	}
 
-	/*
-	 * if device has still open channels to test, then the test on the
-	 * device is still running but the test on current channel is completed
-	 */
 	if (test_dev->open_channels_counter_to_recv != 0 ||
 	    test_dev->open_channels_counter_to_send != 0) {
 		test_ch->test_completed = 1;
@@ -3360,7 +3284,7 @@ static int lpm_test_main_task(void *ptr)
 				(test_ctx->max_number_of_devices-
 				test_ctx->number_of_active_devices),
 				test_ctx->max_number_of_devices);
-			test_dev->final_result_per_dev = 1; /* PASSED */
+			test_dev->final_result_per_dev = 1; 
 		} else {
 			pr_info(TEST_MODULE_NAME ": %s - Random LPM "
 				"TEST_FAILED for device %d of %d\n",
@@ -3368,7 +3292,7 @@ static int lpm_test_main_task(void *ptr)
 				(test_ctx->max_number_of_devices-
 				test_ctx->number_of_active_devices),
 				test_ctx->max_number_of_devices);
-			test_dev->final_result_per_dev = 0; /* FAILED */
+			test_dev->final_result_per_dev = 0; 
 		}
 
 		check_test_completion();
@@ -3459,7 +3383,7 @@ static void lpm_continuous_rand_test(struct test_channel *test_ch)
 		struct lpm_msg msg;
 		u32 ret = 0;
 
-		/* sleeping period is dependent on number of open channels */
+		
 		test_ch->config_msg.test_param =
 				test_ctx->lpm_pseudo_random_seed;
 
@@ -3474,7 +3398,7 @@ static void lpm_continuous_rand_test(struct test_channel *test_ch)
 		msg.reserve1 = 0;
 		msg.reserve2 = 0;
 
-		/* wait for data ready event */
+		
 		write_avail = sdio_write_avail(test_ch->ch);
 		pr_debug(TEST_MODULE_NAME ": %s: write_avail=%d\n",
 		       __func__, write_avail);
@@ -3583,9 +3507,6 @@ exit_err:
 }
 
 
-/**
- * LPM Test while the host wakes up the modem
- */
 static void lpm_test_host_waker(struct test_channel *test_ch)
 {
 	pr_info(TEST_MODULE_NAME ": %s - START\n", __func__);
@@ -3599,22 +3520,17 @@ static void lpm_test_host_waker(struct test_channel *test_ch)
 	lpm_test(test_ch);
 }
 
-/**
-  * Writes number of packets into test channel
-  * @test_ch: test channel control struct
-  * @burst_size: number of packets to send
-  */
 static int write_packet_burst(struct test_channel *test_ch,
 		int burst_size)
 {
 	int ret = 0;
 	int packet_count = 0;
 	unsigned int random_num = 0;
-	int size = test_ch->packet_length; /* first packet size */
+	int size = test_ch->packet_length; 
 	u32 write_avail = 0;
 
 	while (packet_count < burst_size) {
-		/* wait for data ready event */
+		
 		write_avail = sdio_write_avail(test_ch->ch);
 		TEST_DBG(TEST_MODULE_NAME ":%s write_avail=%d,size=%d on chan"
 				" %s\n", __func__,
@@ -3641,28 +3557,19 @@ static int write_packet_burst(struct test_channel *test_ch,
 					ret, test_ch->name);
 			break;
 		}
-		udelay(1000); /*low bus usage while running number of channels*/
+		udelay(1000); 
 		TEST_DBG(TEST_MODULE_NAME ":%s() successfully write %d bytes"
 				", packet_count=%d on chan %s\n", __func__,
 				size, packet_count, test_ch->name);
 		test_ch->tx_bytes += size;
 		packet_count++;
-		/* get next packet size */
+		
 		random_num = get_random_int();
 		size = (random_num % test_ch->packet_length) + 1;
 	}
 	return ret;
 }
 
-/**
-  * Reads packet from test channel and checks that packet number
-  * encoded into the packet is equal to packet_counter
-  * This function is applicable for packet mode channels only
-  *
-  * @test_ch: test channel
-  * @size: expected packet size
-  * @packet_counter: number to validate readed packet
-  */
 static int read_data_from_packet_ch(struct test_channel *test_ch,
 				unsigned int size,
 				int packet_counter)
@@ -3683,7 +3590,7 @@ static int read_data_from_packet_ch(struct test_channel *test_ch,
 		return -EINVAL;
 	}
 	read_avail = sdio_read_avail(test_ch->ch);
-	/* wait for read data ready event */
+	
 	if (read_avail < size) {
 		TEST_DBG(TEST_MODULE_NAME ":%s() wait for rx data on "
 				"chan %s\n", __func__, test_ch->name);
@@ -3719,15 +3626,6 @@ static int read_data_from_packet_ch(struct test_channel *test_ch,
 }
 
 
-/**
-  * Reads packet from test channel and checks that packet number
-  * encoded into the packet is equal to packet_counter
-  * This function is applicable for streaming mode channels only
-  *
-  * @test_ch: test channel
-  * @size: expected packet size
-  * @packet_counter: number to validate readed packet
-  */
 static int read_data_from_stream_ch(struct test_channel *test_ch,
 				unsigned int size,
 				int packet_counter)
@@ -3748,7 +3646,7 @@ static int read_data_from_stream_ch(struct test_channel *test_ch,
 		return -EINVAL;
 	}
 	read_avail = sdio_read_avail(test_ch->ch);
-	/* wait for read data ready event */
+	
 	if (read_avail < size) {
 		TEST_DBG(TEST_MODULE_NAME ":%s() wait for rx data on "
 				"chan %s\n", __func__, test_ch->name);
@@ -3788,10 +3686,6 @@ static int read_data_from_stream_ch(struct test_channel *test_ch,
 	return 0;
 }
 
-/**
- *   Test close channel feature for SDIO_SMEM channel:
- *   close && re-open the SDIO_SMEM channel.
- */
 #ifdef CONFIG_MSM_SDIO_SMEM
 static void open_close_smem_test(struct test_channel *test_ch)
 {
@@ -3833,17 +3727,6 @@ exit_err:
 }
 #endif
 
-/**
- *   Test close channel feature:
- *   1. write random packet number into channel
- *   2. read some data from channel (do this only for second half of
- *   requested packets to send).
- *   3. close && re-open then repeat 1.
- *
- *   Total packets to send: test_ch->config_msg.num_packets.
- *   Burst size is random in [1..test_ch->max_burst_size] range
- *   Packet size is random in [1..test_ch->packet_length]
- */
 static void open_close_test(struct test_channel *test_ch)
 {
 	int ret = 0;
@@ -3866,9 +3749,6 @@ static void open_close_test(struct test_channel *test_ch)
 	size = test_ch->packet_length;
 	buf16 = (u16 *) test_ch->buf;
 
-	/* the test sends configured number of packets in
-	   2 portions: first without reading between write bursts,
-	   second with it */
 	max_packet_count = test_ch->config_msg.num_packets / 2;
 
 	pr_info(TEST_MODULE_NAME ":%s channel %s, total packets:%d,"
@@ -3892,8 +3772,6 @@ static void open_close_test(struct test_channel *test_ch)
 			curr_burst_size = (random_num %
 					test_ch->max_burst_size) + 1;
 
-			/* limit burst size to send
-			 * no more than configured packets */
 			if (curr_burst_size + total_packet_count >
 					max_packet_count) {
 				curr_burst_size = max_packet_count -
@@ -3909,7 +3787,7 @@ static void open_close_test(struct test_channel *test_ch)
 				goto exit_err;
 			}
 			if (i > 0) {
-				/* read from channel */
+				
 				if (test_ch->ch->is_packet_mode)
 					ret = read_data_from_packet_ch(test_ch,
 							size,
@@ -3966,7 +3844,7 @@ static void open_close_test(struct test_channel *test_ch)
 					__func__, test_ch->tx_bytes,
 					total_packet_count, size,
 					test_ch->name);
-		} /* end of while */
+		} 
 	}
 	pr_info(TEST_MODULE_NAME ":%s Test end: total rx bytes = 0x%x,"
 			" total tx bytes = 0x%x for chan %s\n", __func__,
@@ -3986,9 +3864,6 @@ exit_err:
 	return;
 }
 
-/**
- * sender Test
- */
 static void sender_test(struct test_channel *test_ch)
 {
 	int ret = 0 ;
@@ -4023,7 +3898,7 @@ static void sender_test(struct test_channel *test_ch)
 		TEST_DBG(TEST_MODULE_NAME "SENDER WAIT FOR EVENT for chan %s\n",
 			test_ch->name);
 
-		/* wait for data ready event */
+		
 		write_avail = sdio_write_avail(test_ch->ch);
 		TEST_DBG(TEST_MODULE_NAME ":write_avail=%d\n", write_avail);
 		if (write_avail < size) {
@@ -4048,7 +3923,7 @@ static void sender_test(struct test_channel *test_ch)
 			goto exit_err;
 		}
 
-		/* wait for read data ready event */
+		
 		TEST_DBG(TEST_MODULE_NAME ":sender wait for rx data for "
 					  "chan %s\n",
 			 test_ch->name);
@@ -4098,7 +3973,7 @@ static void sender_test(struct test_channel *test_ch)
 			 " for chan %s\n",
 			 test_ch->tx_bytes, packet_count, size, test_ch->name);
 
-	} /* end of while */
+	} 
 
 	pr_info(TEST_MODULE_NAME
 		 ":SENDER TEST END: total rx bytes = 0x%x, "
@@ -4121,9 +3996,6 @@ exit_err:
 	return;
 }
 
-/**
- * A2 Perf Test
- */
 static void a2_performance_test(struct test_channel *test_ch)
 {
 	int ret = 0 ;
@@ -4152,7 +4024,7 @@ static void a2_performance_test(struct test_channel *test_ch)
 	pr_info(TEST_MODULE_NAME ": A2 PERFORMANCE TEST START for chan %s\n",
 		test_ch->name);
 
-	start_jiffy = get_jiffies_64(); /* read the current time */
+	start_jiffy = get_jiffies_64(); 
 
 	while (tx_packet_count < max_packets) {
 
@@ -4168,8 +4040,8 @@ static void a2_performance_test(struct test_channel *test_ch)
 				packet_size = A2_MIN_PACKET_SIZE;
 		}
 
-		/* wait for data ready event */
-		/* use a func to avoid compiler optimizations */
+		
+		
 		write_avail = sdio_write_avail(test_ch->ch);
 		read_avail = sdio_read_avail(test_ch->ch);
 		TEST_DBG(TEST_MODULE_NAME ":channel %s, write_avail=%d, "
@@ -4230,9 +4102,9 @@ static void a2_performance_test(struct test_channel *test_ch)
 			 " for chan %s\n",
 			 test_ch->tx_bytes, tx_packet_count, test_ch->name);
 
-	} /* while (tx_packet_count < max_packets ) */
+	} 
 
-	end_jiffy = get_jiffies_64(); /* read the current time */
+	end_jiffy = get_jiffies_64(); 
 
 	delta_jiffies = end_jiffy - start_jiffy;
 	time_msec = jiffies_to_msecs(delta_jiffies);
@@ -4294,12 +4166,6 @@ exit_err:
 	return;
 }
 
-/**
- * rx_cleanup
- * This function reads all the messages sent by the modem until
- * the read_avail is 0 after 1 second of sleep.
- * The function returns the number of packets that was received.
- */
 static void rx_cleanup(struct test_channel *test_ch, int *rx_packet_count)
 {
 	int read_avail = 0;
@@ -4316,7 +4182,7 @@ static void rx_cleanup(struct test_channel *test_ch, int *rx_packet_count)
 	TEST_DBG(TEST_MODULE_NAME ":channel %s, read_avail=%d\n",
 		 test_ch->name, read_avail);
 
-	/* If no pending messages, wait to see if the modem sends data */
+	
 	if (read_avail == 0) {
 		msleep(1000);
 		read_avail = sdio_read_avail(test_ch->ch);
@@ -4348,12 +4214,6 @@ static void rx_cleanup(struct test_channel *test_ch, int *rx_packet_count)
 }
 
 
-/**
- * A2 RTT Test
- * This function sends a packet and calculate the RTT time of
- * this packet.
- * The test also calculte Min, Max and Average RTT
- */
 static void a2_rtt_test(struct test_channel *test_ch)
 {
 	int ret = 0 ;
@@ -4377,10 +4237,6 @@ static void a2_rtt_test(struct test_channel *test_ch)
 	int read_avail_so_far = 0;
 
 	if (test_ch) {
-		/*
-		 * Cleanup the pending RX data (such as loopback of the
-		 * config msg)
-		 */
 		rx_cleanup(test_ch, &rx_packet_count);
 		rx_packet_count = 0;
 	} else {
@@ -4422,7 +4278,7 @@ static void a2_rtt_test(struct test_channel *test_ch)
 		if (delay_ms)
 			msleep(delay_ms);
 
-		/* wait for data ready event */
+		
 		write_avail = sdio_write_avail(test_ch->ch);
 		TEST_DBG(TEST_MODULE_NAME ":ch %s: write_avail=%d\n",
 			test_ch->name, write_avail);
@@ -4487,10 +4343,6 @@ static void a2_rtt_test(struct test_channel *test_ch)
 				goto exit_err;
 			}
 
-			/*
-			 * must read entire pending bytes, so later, we will
-			 * get a notification when more data arrives
-			 */
 			ret = sdio_read(test_ch->ch, test_ch->buf,
 					read_avail);
 
@@ -4514,7 +4366,7 @@ static void a2_rtt_test(struct test_channel *test_ch)
 		if (delta_usec > max_delta_usec)
 				max_delta_usec = delta_usec;
 
-		/* checking the RTT per channel criteria */
+		
 		if (delta_usec > MAX_AVG_RTT_TIME_USEC) {
 			pr_err(TEST_MODULE_NAME ": %s - "
 			       "msg # %d - rtt time (%d usec) is "
@@ -4529,7 +4381,7 @@ static void a2_rtt_test(struct test_channel *test_ch)
 		TEST_DBG(TEST_MODULE_NAME
 			 ":RTT time=%d for packet #%d for chan %s\n",
 			 delta_usec, tx_packet_count, test_ch->name);
-	} /* while (tx_packet_count < max_packets ) */
+	} 
 
 	pr_info(TEST_MODULE_NAME ": %s - tx_packet_count = %d\n",
 		__func__, tx_packet_count);
@@ -4588,22 +4440,6 @@ exit_err:
 	return;
 }
 
-/**
- * Process Rx Data - Helper for A2 Validation Test
- * @test_ch(in/out) : Test channel that contains Rx data buffer to process.
- *
- * @rx_unprocessed_bytes(in) : Number of bytes to process in the buffer.
- *
- * @rx_process_packet_state(in/out) :
- * Current processing state (used to identify what to process
- * next in a partial packet)
- *
- * @rx_packet_size(in/out) :
- * Number of bytes remaining in the packet to be processed.
- *
- * @rx_packet_count(in/out) :
- * Number of packets processed.
- */
 static int process_rx_data(struct test_channel *test_ch,
 			   u32 rx_unprocessed_bytes,
 			   int *rx_process_packet_state,
@@ -4617,14 +4453,14 @@ static int process_rx_data(struct test_channel *test_ch,
 	u32 *ptr = 0;
 	u16 size = 0;
 
-	/* process rx data */
+	
 	while (rx_unprocessed_bytes) {
 		TEST_DBG(TEST_MODULE_NAME ": unprocessed bytes : %u\n",
 			rx_unprocessed_bytes);
 
 		switch (*rx_process_packet_state) {
 		case RX_PROCESS_PACKET_INIT:
-			/* process the A2 header */
+			
 			TEST_DBG(TEST_MODULE_NAME ": "
 				"RX_PROCESS_PACKET_INIT\n");
 			*rx_process_packet_state = RX_PROCESS_PACKET_INIT;
@@ -4635,24 +4471,20 @@ static int process_rx_data(struct test_channel *test_ch,
 			rx_unprocessed_bytes -= 4;
 
 		case RX_PROCESS_A2_HEADER:
-			/* process the rest of A2 header */
+			
 			TEST_DBG(TEST_MODULE_NAME ": RX_PROCESS_A2_HEADER\n");
 			*rx_process_packet_state = RX_PROCESS_A2_HEADER;
 			if (rx_unprocessed_bytes < 4)
 				break;
 
 			ptr = (u32 *)&buf[i];
-			/*
-			 * upper 2 bytes of the last 4 bytes of A2 header
-			 * contains the size of the packet
-			 */
 			*rx_packet_size = *ptr >> 0x10;
 
 			i += 4;
 			rx_unprocessed_bytes -= 4;
 
 		case RX_PROCESS_PACKET_DATA:
-			/* process the2_2_ packet data */
+			
 			TEST_DBG(TEST_MODULE_NAME ": RX_PROCESS_PACKET_DATA "
 				 "- packet size - %u\n", *rx_packet_size);
 			*rx_process_packet_state = RX_PROCESS_PACKET_DATA;
@@ -4667,19 +4499,15 @@ static int process_rx_data(struct test_channel *test_ch,
 						  rx_unprocessed_bytes;
 			}
 
-			/* no more bytes available to process */
+			
 			if (!eop)
 				break;
-			/*
-			 * end of packet is starting from
-			 * the current position
-			 */
 			eop = eop + i;
 			TEST_DBG(TEST_MODULE_NAME ": size - %u, "
 				 "packet size - %u eop - %d\n",
 				 size, *rx_packet_size, eop);
 
-			/* validate the data */
+			
 			for (; i < eop; i++) {
 				if (buf[i] != (test_ch->rx_bytes % 256)) {
 					pr_err(TEST_MODULE_NAME ": "
@@ -4693,21 +4521,17 @@ static int process_rx_data(struct test_channel *test_ch,
 				test_ch->rx_bytes++;
 			}
 
-			/* have more data to be processed */
+			
 			if (*rx_packet_size)
 				break;
 
-			/*
-			 * A2 sends data in 4 byte alignment,
-			 * skip the padding
-			 */
 			if (size % 4) {
 				i += 4 - (size % 4);
 				rx_unprocessed_bytes -= 4 - (size % 4);
 			}
 			*rx_packet_count = *rx_packet_count + 1;
 
-			/* re init the state to process new packet */
+			
 			*rx_process_packet_state = RX_PROCESS_PACKET_INIT;
 			break;
 		default:
@@ -4724,14 +4548,6 @@ err:
 	return ret;
 }
 
-/**
- * A2 Validation Test
- * Send packets and validate the returned packets.
- * Transmit one packet at a time, while process multiple rx
- * packets in a single transaction.
- * A transaction is of size min(random number, write_avail).
- * A packet consists of a min of 1 byte to channel supported max.
- */
 static void a2_validation_test(struct test_channel *test_ch)
 {
 	int ret = 0 ;
@@ -4752,13 +4568,13 @@ static void a2_validation_test(struct test_channel *test_ch)
 	pr_info(TEST_MODULE_NAME ": A2 VALIDATION TEST START for chan %s\n",
 		test_ch->name);
 
-	/* Wait for the initial rx messages before starting the test. */
+	
 	rx_cleanup(test_ch, &initial_rx_packet_count);
 
 	test_ch->tx_bytes = 0;
 	test_ch->rx_bytes = 0;
 
-	/* Continue till we have transmitted and received all packets */
+	
 	while ((tx_packet_count < max_packets) ||
 	       (rx_packet_count < max_packets)) {
 
@@ -4771,10 +4587,6 @@ static void a2_validation_test(struct test_channel *test_ch)
 		size = (random_num % test_ch->packet_length) + 1;
 		TEST_DBG(TEST_MODULE_NAME ": Random tx packet size =%u", size);
 
-		/*
-		 * wait for data ready event
-		 * use a func to avoid compiler optimizations
-		 */
 		write_avail = sdio_write_avail(test_ch->ch);
 		read_avail = sdio_read_avail(test_ch->ch);
 		TEST_DBG(TEST_MODULE_NAME ": write_avail=%d, "
@@ -4787,7 +4599,7 @@ static void a2_validation_test(struct test_channel *test_ch)
 			atomic_set(&test_ch->any_notify_count, 0);
 		}
 
-		/* Transmit data */
+		
 		write_avail = sdio_write_avail(test_ch->ch);
 		if ((tx_packet_count < max_packets) && (write_avail > 0)) {
 			tx_packet_size = min(size, write_avail) ;
@@ -4796,7 +4608,7 @@ static void a2_validation_test(struct test_channel *test_ch)
 				tx_packet_size, write_avail,
 				tx_packet_count);
 			memset(test_ch->buf, 0, test_ch->buf_size);
-			/* populate the buffer */
+			
 			for (i = 0; i < tx_packet_size; i++) {
 				buf8[i] = test_ch->tx_bytes % 256;
 				test_ch->tx_bytes++;
@@ -4813,7 +4625,7 @@ static void a2_validation_test(struct test_channel *test_ch)
 			tx_packet_count++;
 		}
 
-		/* Receive data */
+		
 		read_avail = sdio_read_avail(test_ch->ch);
 		if (read_avail > 0) {
 			TEST_DBG(TEST_MODULE_NAME ": rx size = %u, "
@@ -4830,7 +4642,7 @@ static void a2_validation_test(struct test_channel *test_ch)
 				goto exit_err;
 			}
 
-			/* Process data */
+			
 			ret = process_rx_data(test_ch, read_avail,
 					      &rx_process_packet_state,
 					      &rx_packet_size,
@@ -4867,9 +4679,6 @@ exit_err:
 	return;
 }
 
-/**
- * sender No loopback Test
- */
 static void sender_no_loopback_test(struct test_channel *test_ch)
 {
 	int ret = 0 ;
@@ -4903,7 +4712,7 @@ static void sender_no_loopback_test(struct test_channel *test_ch)
 					  "for chan %s\n",
 			test_ch->name);
 
-		/* wait for data ready event */
+		
 		write_avail = sdio_write_avail(test_ch->ch);
 		TEST_DBG(TEST_MODULE_NAME ":write_avail=%d\n", write_avail);
 		if (write_avail < size) {
@@ -4936,7 +4745,7 @@ static void sender_no_loopback_test(struct test_channel *test_ch)
 			 " for chan %s\n",
 			 test_ch->tx_bytes, packet_count, size, test_ch->name);
 
-	} /* end of while */
+	} 
 
 	pr_info(TEST_MODULE_NAME
 		 ":SENDER TEST END: total tx bytes = 0x%x, "
@@ -4968,11 +4777,6 @@ exit_err:
 }
 
 
-/**
- * Modem reset Test
- * The test verifies that it finished sending all the packets
- * while there might be modem reset in the middle
- */
 static void modem_reset_test(struct test_channel *test_ch)
 {
 	int ret = 0 ;
@@ -5015,15 +4819,15 @@ static void modem_reset_test(struct test_channel *test_ch)
 			if (test_ch->card_removed)
 				continue;
 			is_err = 0;
-			/* Need to wait for the modem to be ready */
+			
 			msleep(5000);
 			pr_info(TEST_MODULE_NAME ": sending the config message "
 					"for chan %s\n", test_ch->name);
 			send_config_msg(test_ch);
 		}
 
-		/* wait for data ready event */
-		/* use a func to avoid compiler optimizations */
+		
+		
 		write_avail = sdio_write_avail(test_ch->ch);
 		read_avail = sdio_read_avail(test_ch->ch);
 		TEST_DBG(TEST_MODULE_NAME ":channel %s, write_avail=%d, "
@@ -5042,7 +4846,7 @@ static void modem_reset_test(struct test_channel *test_ch)
 				test_ch->name,  test_ch->tx_bytes);
 			if (test_ch->card_removed)
 				continue;
-			/* Need to wait for the modem to be ready */
+			
 			msleep(5000);
 			is_err = 0;
 			pr_info(TEST_MODULE_NAME ": sending the config message "
@@ -5117,7 +4921,7 @@ static void modem_reset_test(struct test_channel *test_ch)
 
 		udelay(500);
 
-	} /* while (tx_packet_count < max_packets ) */
+	} 
 
 	pr_info(TEST_MODULE_NAME ":total rx bytes = 0x%x , rx_packet#=%d for"
 				 " chan %s.\n",
@@ -5136,9 +4940,6 @@ static void modem_reset_test(struct test_channel *test_ch)
 	return;
 }
 
-/**
- * Worker thread to handle the tests types
- */
 static void worker(struct work_struct *work)
 {
 	struct test_channel *test_ch = NULL;
@@ -5198,12 +4999,6 @@ static void worker(struct work_struct *work)
 }
 
 
-/**
- * Notification Callback
- *
- * Notify the worker
- *
- */
 static void notify(void *priv, unsigned channel_event)
 {
 	struct test_channel *test_ch = (struct test_channel *) priv;
@@ -5226,11 +5021,6 @@ static void notify(void *priv, unsigned channel_event)
 			 __func__,
 			 atomic_read(&test_ch->any_notify_count),
 			 atomic_read(&test_ch->rx_notify_count));
-		/*
-		 * when there is pending data on a channel we would like to
-		 * turn on the bit mask that implies that there is pending
-		 * data for that channel on that deivce
-		 */
 		if (test_ch->test_device != NULL &&
 		    test_ch->test_type == SDIO_TEST_LPM_RANDOM) {
 			spin_lock_irqsave(&test_ch->test_device->lpm_array_lock,
@@ -5411,7 +5201,7 @@ static void sdio_test_lpm_timer_handler(unsigned long data)
 		return;
 	}
 
-	/* Verfiy that we voted for sleep */
+	
 	if (tch->is_ok_to_sleep) {
 		tch->test_result = TEST_PASSED;
 		pr_info(TEST_MODULE_NAME ": %s - 8K voted for sleep\n",
@@ -5493,8 +5283,6 @@ static int sdio_test_find_dev(struct test_channel *tch)
 			test_dev->open_channels_counter_to_recv++;
 			test_dev->open_channels_counter_to_send++;
 			tch->test_device = test_dev;
-			/* setting mask id for pending data for
-			   this channel */
 			tch->channel_mask_id = test_dev->next_mask_id;
 			test_dev->next_mask_id *= 2;
 			pr_info(TEST_MODULE_NAME ": %s - channel %s "
@@ -5506,11 +5294,6 @@ static int sdio_test_find_dev(struct test_channel *tch)
 		}
 	}
 
-	/*
-	 * happens ones a new device is "discovered" while testing. i.e
-	 * if testing a few channels, a new deivce will be "discovered" once
-	 * the first channel of a device is being tested
-	 */
 	if (j == MAX_NUM_OF_SDIO_DEVICES) {
 
 		struct sdio_test_device *test_dev =
@@ -5558,10 +5341,6 @@ static int sdio_test_find_dev(struct test_channel *tch)
 			}
 		}
 
-		/*
-		 * in new device, initialize next_mask_id, and setting
-		 * mask_id to the channel
-		 */
 		test_dev->next_mask_id = 0x1;
 		tch->channel_mask_id = test_dev->next_mask_id;
 		test_dev->next_mask_id *= 2;
@@ -5622,9 +5401,6 @@ static void check_test_result(void)
 	return;
 }
 
-/**
- * Test Main
- */
 static int test_start(void)
 {
 	int ret = -ENOMEM;
@@ -5644,7 +5420,7 @@ static int test_start(void)
 	memset(test_ctx->test_dev_arr, 0,
 		sizeof(struct sdio_test_device)*MAX_NUM_OF_SDIO_DEVICES);
 
-	/* Open The Channels */
+	
 	for (i = 0; i < SDIO_MAX_CHANNELS; i++) {
 		struct test_channel *tch = test_ctx->test_ch_arr[i];
 
@@ -5659,7 +5435,7 @@ static int test_start(void)
 		atomic_set(&tch->any_notify_count, 0);
 		atomic_set(&tch->wakeup_client, 0);
 
-		/* in case there are values left from previous tests */
+		
 		tch->notify_counter_per_chan = 0;
 		tch->next_index_in_sent_msg_per_chan = 0;
 
@@ -5692,16 +5468,8 @@ static int test_start(void)
 					 sdio_test_wakeup_callback);
 	}
 
-	/*
-	 * make some space between opening the channels and sending the
-	 * config messages
-	 */
 	msleep(100);
 
-	/*
-	 * try to delay send_config_msg of all channels to after the point
-	 * when we open them all
-	 */
 	for (i = 0; i < SDIO_MAX_CHANNELS; i++) {
 		struct test_channel *tch = test_ctx->test_ch_arr[i];
 
@@ -5753,11 +5521,6 @@ static int test_start(void)
 	wait_event(test_ctx->wait_q, test_ctx->test_completed);
 	check_test_result();
 
-	/*
-	 * Close the channels and zero the is_used flag so that if the modem
-	 * will be reset after the test completion we won't re-open
-	 * the channels
-	 */
 	for (i = 0; i < SDIO_MAX_CHANNELS; i++) {
 		struct test_channel *tch = test_ctx->test_ch_arr[i];
 
@@ -5814,12 +5577,12 @@ static int set_params_loopback_9k_close(struct test_channel *tch)
 	switch (tch->ch_id) {
 	case SDIO_DUN:
 	case SDIO_RPC:
-		tch->packet_length = 128; /* max is 2K*/
+		tch->packet_length = 128; 
 		break;
 	case SDIO_DIAG:
 	case SDIO_RMNT:
 	default:
-		tch->packet_length = 512; /* max is 4k */
+		tch->packet_length = 512; 
 	}
 	tch->timer_interval_ms = 0;
 	return 0;
@@ -6050,8 +5813,6 @@ static int set_params_8k_sender_no_lp(struct test_channel *tch)
 
 static void set_pseudo_random_seed(void)
 {
-	/* Set the seed accoring to the kernel command parameters if any or
-	   get a random value */
 	if (seed != 0) {
 		test_ctx->lpm_pseudo_random_seed = seed;
 	} else {
@@ -6065,11 +5826,6 @@ static void set_pseudo_random_seed(void)
 		   __func__, test_ctx->lpm_pseudo_random_seed);
 }
 
-/*
-   for each channel
-   1. open channel
-   2. close channel
-*/
 static int close_channel_lpm_test(int channel_num)
 {
 	int ret = 0;
@@ -6106,13 +5862,6 @@ static int close_channel_lpm_test(int channel_num)
 	return ret;
 }
 
-/**
- * Write File.
- *
- * @note Trigger the test from user space by:
- * echo 1 > /dev/sdio_al_test
- *
- */
 ssize_t test_write(struct file *filp, const char __user *buf, size_t size,
 		   loff_t *f_pos)
 {
@@ -6139,9 +5888,6 @@ ssize_t test_write(struct file *filp, const char __user *buf, size_t size,
 	return size;
 }
 
-/**
- * Test Channel Init.
- */
 int test_channel_init(char *name)
 {
 	struct test_channel *test_ch;
@@ -6382,9 +6128,6 @@ const struct file_operations test_fops = {
 	.write = test_write,
 };
 
-/**
- * Module Init.
- */
 static int __init test_init(void)
 {
 	int ret;
@@ -6448,9 +6191,6 @@ static int __init test_init(void)
 	return ret;
 }
 
-/**
- * Module Exit.
- */
 static void __exit test_exit(void)
 {
 	int i;
@@ -6459,7 +6199,7 @@ static void __exit test_exit(void)
 
 	test_ctx->exit_flag = true;
 
-	msleep(100); /* allow gracefully exit of the worker thread */
+	msleep(100); 
 
 	cdev_del(test_ctx->cdev);
 	device_destroy(test_class, test_ctx->dev_num);

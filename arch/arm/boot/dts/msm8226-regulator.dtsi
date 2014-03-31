@@ -82,7 +82,7 @@
 		qti,cpr-fuse-redun-target-quot = <24 12 0>;
 		qti,cpr-fuse-redun-ro-sel = <46 36 39>;
 
-		qti,cpr-enable;
+/*		qti,cpr-enable; */
 		qti,cpr-fuse-cond-min-volt-sel = <54 42 6 7 1>;
 		qti,cpr-cond-min-voltage = <1140000>;
 		qti,cpr-fuse-uplift-sel = <22 53 1 0 0>;
@@ -342,9 +342,9 @@
 		status = "okay";
 		pm8226_l15: regulator-l15 {
 			regulator-name = "8226_l15";
-			regulator-min-microvolt = <2800000>;
-			regulator-max-microvolt = <2800000>;
-			qcom,init-voltage = <2800000>;
+			regulator-min-microvolt = <3000000>;
+			regulator-max-microvolt = <3000000>;
+			qcom,init-voltage = <3000000>;
 			status = "okay";
 		};
 	};
@@ -430,8 +430,8 @@
 		pm8226_l23: regulator-l23 {
 			regulator-name = "8226_l23";
 			regulator-min-microvolt = <1800000>;
-			regulator-max-microvolt = <2950000>;
-			qcom,init-voltage = <2950000>;
+			regulator-max-microvolt = <3000000>;
+			qcom,init-voltage = <3000000>;
 			status = "okay";
 		};
 	};
@@ -485,8 +485,8 @@
 		pm8226_l28: regulator-l28 {
 			regulator-name = "8226_l28";
 			regulator-min-microvolt = <1800000>;
-			regulator-max-microvolt = <2950000>;
-			qcom,init-voltage = <2950000>;
+			regulator-max-microvolt = <1800000>;
+			qcom,init-voltage = <1800000>;
 			status = "okay";
 		};
 	};

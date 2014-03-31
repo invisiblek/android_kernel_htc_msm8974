@@ -31,13 +31,10 @@
 #include "pm.h"
 #include "debug.h"
 
-/* MobiCore context data */
 static struct mc_context *ctx;
 
 static inline long smc(union fc_generic *fc)
 {
-	/* If we request sleep yields must be filtered out as they
-	 * make no sense */
 	if (ctx->mcp)
 		if (ctx->mcp->flags.sleep_mode.SleepReq) {
 			if (fc->as_in.cmd == MC_SMC_N_YIELD)
@@ -98,7 +95,7 @@ int mc_fastcall_init(struct mc_context *context)
 		return ret;
 	}
 
-	/* this thread MUST run on CPU 0 */
+	
 	kthread_bind(fastcall_thread, 0);
 	wake_up_process(fastcall_thread);
 
@@ -188,7 +185,6 @@ int mc_info(uint32_t ext_info_id, uint32_t *state, uint32_t *ext_info)
 	return ret;
 }
 
-/* Yield to MobiCore */
 int mc_yield(void)
 {
 	int ret = 0;
@@ -204,7 +200,6 @@ int mc_yield(void)
 	return ret;
 }
 
-/* call common notify */
 int mc_nsiq(void)
 {
 	int ret = 0;
@@ -219,7 +214,6 @@ int mc_nsiq(void)
 	return ret;
 }
 
-/* call common notify */
 int _nsiq(void)
 {
 	int ret = 0;
@@ -234,7 +228,6 @@ int _nsiq(void)
 	return ret;
 }
 
-/* Call the INIT fastcall to setup MobiCore initialization */
 int mc_init(uint32_t base, uint32_t nq_offset, uint32_t nq_length,
 	uint32_t mcp_offset, uint32_t mcp_length)
 {
@@ -246,17 +239,13 @@ int mc_init(uint32_t base, uint32_t nq_offset, uint32_t nq_length,
 	memset(&fc_init, 0, sizeof(fc_init));
 
 	fc_init.as_in.cmd = MC_FC_INIT;
-	/* base address of mci buffer 4KB aligned */
+	
 	fc_init.as_in.base = base;
-	/* notification buffer start/length [16:16] [start, length] */
+	
 	fc_init.as_in.nq_info = (nq_offset << 16) | (nq_length & 0xFFFF);
-	/* mcp buffer start/length [16:16] [start, length] */
+	
 	fc_init.as_in.mcp_info = (mcp_offset << 16) | (mcp_length & 0xFFFF);
 
-	/*
-	 * Set KMOD notification queue to start of MCI
-	 * mciInfo was already set up in mmap
-	 */
 	MCDRV_DBG(mcd,
 		  "cmd=0x%08x, base=0x%08x,nq_info=0x%08x, mcp_info=0x%08x\n",
 		  fc_init.as_in.cmd, fc_init.as_in.base, fc_init.as_in.nq_info,
@@ -274,7 +263,6 @@ int mc_init(uint32_t base, uint32_t nq_offset, uint32_t nq_length,
 	return ret;
 }
 
-/* Return MobiCore driver version */
 uint32_t mc_get_version(void)
 {
 	MCDRV_DBG(mcd, "MobiCore driver version is %i.%i\n",

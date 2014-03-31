@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -138,7 +138,6 @@ static struct attribute_group lpm_levels_attr_grp = {
 	.attrs = lpm_levels_attr,
 };
 
-/* SYSFS */
 static ssize_t lpm_levels_attr_show(
 	struct kobject *kobj, struct kobj_attribute *attr, char *buf)
 {
@@ -296,18 +295,6 @@ static int lpm_system_mode_select(
 		if (sleep_us < pwr_param->time_overhead_us)
 			continue;
 
-		/*
-		 * After the suspend prepare notifications its possible
-		 * for the CPU to enter a system sleep mode. But MPM would have
-		 * already requested a XO clock based on the wakeup irqs. To
-		 * prevent suspend votes from being overriden by idle irqs, MPM
-		 * doesn't send an updated MPM vote after suspend_prepare
-		 * callback.
-		 * To ensure that XO sleep vote isn't used if and when the
-		 * device enters idle PC after suspend prepare callback,
-		 * disallow any low power modes that notifies RPM after suspend
-		 * prepare function is called
-		 */
 		if (suspend_in_progress && system_level->notify_rpm &&
 				from_idle)
 			continue;
@@ -341,7 +328,8 @@ static void lpm_system_prepare(struct lpm_system_state *system_state,
 	const struct cpumask *nextcpu;
 
 	spin_lock(&system_state->sync_lock);
-	if (num_powered_cores != system_state->num_cores_in_sync) {
+	if (index < 0 ||
+			num_powered_cores != system_state->num_cores_in_sync) {
 		spin_unlock(&system_state->sync_lock);
 		return;
 	}
@@ -418,7 +406,7 @@ static void lpm_system_unprepare(struct lpm_system_state *system_state,
 			system_lvl->num_cpu_votes--;
 	}
 
-	if (!first_core_up)
+	if (!first_core_up || index < 0)
 		goto unlock_and_return;
 
 	if (default_l2_mode != system_state->system_level[index].l2_mode)
@@ -429,6 +417,7 @@ static void lpm_system_unprepare(struct lpm_system_state *system_state,
 		msm_mpm_exit_sleep(from_idle);
 	}
 unlock_and_return:
+	system_state->last_entered_cluster_index = -1;
 	spin_unlock(&system_state->sync_lock);
 }
 
@@ -648,11 +637,6 @@ static inline void lpm_cpu_prepare(struct lpm_system_state *system_state,
 	struct lpm_cpu_level *cpu_level = &system_state->cpu_level[cpu_index];
 	unsigned int cpu = smp_processor_id();
 
-	/* Use broadcast timer for aggregating sleep mode within a cluster.
-	 * A broadcast timer could be used because of harware restriction or
-	 * to ensure that we BC timer is used incase a cpu mode could trigger
-	 * a cluster level sleep
-	 */
 	if (from_idle && (cpu_level->use_bc_timer ||
 			(cpu_level->mode >= system_state->sync_cpu_mode)))
 		clockevents_notify(CLOCK_EVT_NOTIFY_BROADCAST_ENTER, &cpu);
@@ -726,8 +710,7 @@ static void lpm_enter_low_power(struct lpm_system_state *system_state,
 
 	idx = lpm_system_select(system_state, cpu_index, from_idle);
 
-	if (idx >= 0)
-		lpm_system_prepare(system_state, idx, from_idle);
+	lpm_system_prepare(system_state, idx, from_idle);
 
 	msm_cpu_pm_enter_sleep(cpu_level->mode, from_idle);
 
@@ -883,7 +866,7 @@ static int lpm_cpu_probe(struct platform_device *pdev)
 	struct device_node *node = NULL;
 	int num_levels = 0;
 	char *key;
-	int ret;
+	int ret = 0;
 
 	for_each_child_of_node(pdev->dev.of_node, node)
 		num_levels++;
@@ -940,7 +923,7 @@ static int lpm_system_probe(struct platform_device *pdev)
 	int num_levels = 0;
 	struct device_node *node;
 	char *key;
-	int ret;
+	int ret = 0;
 
 	for_each_child_of_node(pdev->dev.of_node, node)
 		num_levels++;
@@ -1013,6 +996,7 @@ static int lpm_system_probe(struct platform_device *pdev)
 	}
 	sys_state.system_level = level;
 	sys_state.num_system_levels = num_levels;
+	sys_state.last_entered_cluster_index = -1;
 	return ret;
 fail:
 	kfree(level);
@@ -1042,7 +1026,7 @@ static int lpm_probe(struct platform_device *pdev)
 	if (ret)
 		goto fail;
 
-	/* Do the following two steps only if L2 SAW is present */
+	
 	num_powered_cores = num_online_cpus();
 
 	if (!sys_state.no_l2_saw) {

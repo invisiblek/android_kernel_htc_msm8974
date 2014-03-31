@@ -24,9 +24,6 @@
 
 #include <linux/fsm_rfic_ftr.h>
 
-/*
- * FTR8700 RFIC
- */
 
 #define RFIC_FTR_DEVICE_NUM		2
 #define RFIC_GRFC_REG_NUM		6
@@ -38,9 +35,6 @@
 #define RX_BUS				0x3
 #define BUS_BITS			0x3
 
-/*
- * Device private information per device node
- */
 
 static struct ftr_dev_node_info {
 	void *grfcCtrlAddr;
@@ -48,21 +42,15 @@ static struct ftr_dev_node_info {
 	unsigned int busSelect[4];
 	struct i2c_adapter *ssbi_adap;
 
-	/* lock */
+	
 	struct mutex lock;
 } ftr_dev_info[RFIC_FTR_DEVICE_NUM];
 
-/*
- * Device private information per file
- */
 
 struct ftr_dev_file_info {
 	int ftrId;
 };
 
-/*
- * File interface
- */
 
 static int ftr_find_id(int minor);
 
@@ -70,13 +58,13 @@ static int ftr_open(struct inode *inode, struct file *file)
 {
 	struct ftr_dev_file_info *pdfi;
 
-	/* private data allocation */
+	
 	pdfi = kmalloc(sizeof(*pdfi), GFP_KERNEL);
 	if (pdfi == NULL)
 		return -ENOMEM;
 	file->private_data = pdfi;
 
-	/* FTR ID */
+	
 	pdfi->ftrId = ftr_find_id(MINOR(inode->i_rdev));
 
 	return 0;
@@ -169,7 +157,7 @@ static long ftr_ioctl(struct file *file,
 
 			mutex_lock(&pdev->lock);
 			mb();
-			/* Need to write twice due to bug in hardware */
+			
 			__raw_writel(
 				pdev->busSelect[RFIC_FTR_GET_BUS(rficAddr)],
 				pdev->grfcCtrlAddr);
@@ -203,7 +191,7 @@ static long ftr_ioctl(struct file *file,
 
 			mutex_lock(&pdev->lock);
 			mb();
-			/* Need to write twice due to bug in hardware */
+			
 			__raw_writel(
 				pdev->busSelect[RFIC_FTR_GET_BUS(rficAddr)],
 				pdev->grfcCtrlAddr);
@@ -233,7 +221,7 @@ static long ftr_ioctl(struct file *file,
 
 			mutex_lock(&pdev->lock);
 			mb();
-			/* Need to write twice due to bug in hardware */
+			
 			__raw_writel(
 				pdev->busSelect[RFIC_FTR_GET_BUS(rficAddr)],
 				pdev->grfcCtrlAddr);
@@ -286,7 +274,7 @@ static long ftr_ioctl(struct file *file,
 
 			__raw_writel(param.maskValue,
 				MSM_GRFC_BASE + 0x18 + param.grfcId * 4);
-			/* Need to write twice due to bug in hardware */
+			
 			__raw_writel(param.ctrlValue,
 				MSM_GRFC_BASE + 0x00 + param.grfcId * 4);
 			__raw_writel(param.ctrlValue,
@@ -311,9 +299,6 @@ static const struct file_operations ftr_fops = {
 	.unlocked_ioctl = ftr_ioctl,
 };
 
-/*
- * Driver initialization & cleanup
- */
 
 struct miscdevice ftr_misc_dev[RFIC_FTR_DEVICE_NUM] = {
 	{

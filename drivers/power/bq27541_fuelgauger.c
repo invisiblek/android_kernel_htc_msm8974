@@ -33,10 +33,9 @@
 #include <linux/regulator/machine.h>
 #include <linux/err.h>
 #include <linux/msm-charger.h>
-#include <linux/i2c/bq27520.h> /* use the same platform data as bq27520 */
+#include <linux/i2c/bq27520.h> 
 
 #define DRIVER_VERSION			"1.1.0"
-/* Bq27541 standard data commands */
 #define BQ27541_REG_CNTL		0x00
 #define BQ27541_REG_AR			0x02
 #define BQ27541_REG_ARTTE		0x04
@@ -70,7 +69,6 @@
 #define BQ27541_CS_DLOGEN		BIT(15)
 #define BQ27541_CS_SS		    BIT(13)
 
-/* Control subcommands */
 #define BQ27541_SUBCMD_CTNL_STATUS  0x0000
 #define BQ27541_SUBCMD_DEVCIE_TYPE  0x0001
 #define BQ27541_SUBCMD_FW_VER  0x0002
@@ -99,9 +97,6 @@
 #define ZERO_DEGREE_CELSIUS_IN_TENTH_KELVIN   (-2731)
 #define BQ27541_INIT_DELAY   ((HZ)*1)
 
-/* If the system has several batteries we need a different name for each
- * of them...
- */
 static DEFINE_IDR(battery_id);
 static DEFINE_MUTEX(battery_mutex);
 
@@ -117,14 +112,11 @@ struct bq27541_device_info {
 	struct bq27541_access_methods	*bus;
 	struct i2c_client		*client;
 	struct work_struct		counter;
-	/* 300ms delay is needed after bq27541 is powered up
-	 * and before any successful I2C transaction
-	 */
 	struct  delayed_work		hw_config;
 };
 
 static int coulomb_counter;
-static spinlock_t lock; /* protect access to coulomb_counter */
+static spinlock_t lock; 
 
 static int bq27541_i2c_txsubcmd(u8 reg, unsigned short subcmd,
 		struct bq27541_device_info *di);
@@ -135,10 +127,6 @@ static int bq27541_read(u8 reg, int *rt_value, int b_single,
 	return di->bus->read(reg, rt_value, b_single, di);
 }
 
-/*
- * Return the battery temperature in tenths of degree Celsius
- * Or < 0 if something fails.
- */
 static int bq27541_battery_temperature(struct bq27541_device_info *di)
 {
 	int ret;
@@ -153,10 +141,6 @@ static int bq27541_battery_temperature(struct bq27541_device_info *di)
 	return temp + ZERO_DEGREE_CELSIUS_IN_TENTH_KELVIN;
 }
 
-/*
- * Return the battery Voltage in milivolts
- * Or < 0 if something fails.
- */
 static int bq27541_battery_voltage(struct bq27541_device_info *di)
 {
 	int ret;
@@ -177,9 +161,6 @@ static void bq27541_cntl_cmd(struct bq27541_device_info *di,
 	bq27541_i2c_txsubcmd(BQ27541_REG_CNTL, subcmd, di);
 }
 
-/*
- * i2c specific code
- */
 static int bq27541_i2c_txsubcmd(u8 reg, unsigned short subcmd,
 		struct bq27541_device_info *di)
 {
@@ -241,9 +222,6 @@ static void bq27541_coulomb_counter_work(struct work_struct *work)
 
 	di = container_of(work, struct bq27541_device_info, counter);
 
-	/* retrieve 30 values from FIFO of coulomb data logging buffer
-	 * and average over time
-	 */
 	do {
 		ret = bq27541_read(BQ27541_REG_LOGBUF, &temp, 0, di);
 		if (ret < 0)
@@ -252,9 +230,6 @@ static void bq27541_coulomb_counter_work(struct work_struct *work)
 			++count;
 			value += temp;
 		}
-		/* delay 66uS, waiting time between continuous reading
-		 * results
-		 */
 		udelay(66);
 		ret = bq27541_read(BQ27541_REG_LOGIDX, &index, 0, di);
 		if (ret < 0)
@@ -425,7 +400,7 @@ static ssize_t bq27541_read_subcmd(struct device *dev,
 		 subcmd == BQ27541_SUBCMD_HW_VER ||
 		 subcmd == BQ27541_SUBCMD_CHEM_ID) {
 
-		bq27541_cntl_cmd(di, subcmd); /* Retrieve Chip status */
+		bq27541_cntl_cmd(di, subcmd); 
 		udelay(66);
 		ret = bq27541_read(BQ27541_REG_CNTL, &temp, 0, di);
 
@@ -482,7 +457,7 @@ static int bq27541_battery_probe(struct i2c_client *client,
 	if (!i2c_check_functionality(client->adapter, I2C_FUNC_I2C))
 		return -ENODEV;
 
-	/* Get new ID for the new battery device */
+	
 	retval = idr_pre_get(&battery_id, GFP_KERNEL);
 	if (retval == 0)
 		return -ENOMEM;
