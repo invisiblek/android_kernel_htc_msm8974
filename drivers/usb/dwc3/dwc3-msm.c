@@ -46,6 +46,9 @@
 #include <mach/rpm-regulator-smd.h>
 #include <mach/msm_bus.h>
 #include <mach/clk.h>
+#ifdef CONFIG_MACH_M8
+#include <mach/board.h>
+#endif
 
 #include "dwc3_otg.h"
 #include "core.h"
@@ -198,7 +201,7 @@ struct dwc3_msm {
 	struct regulator	*vbus_otg;
 	struct dwc3_ext_xceiv	ext_xceiv;
 	bool			resume_pending;
-	atomic_t                pm_suspended;
+	atomic_t		pm_suspended;
 	atomic_t		in_lpm;
 	int			hs_phy_irq;
 	int			hsphy_init_seq;
@@ -247,6 +250,10 @@ struct dwc3_msm {
 	bool ext_chg_opened;
 	bool ext_chg_active;
 	struct completion ext_chg_wait;
+#ifdef CONFIG_MACH_M8
+	struct qpnp_vadc_chip	*vadc_chip;
+	struct wake_lock	cable_detect_wlock;
+#endif
 };
 
 #define USB_HSPHY_3P3_VOL_MIN		3050000 /* uV */
@@ -262,6 +269,11 @@ struct dwc3_msm {
 #define USB_SSPHY_1P8_HPM_LOAD		23000	/* uA */
 
 static struct usb_ext_notification *usb_ext;
+
+#ifdef CONFIG_MACH_M8
+static struct dwc3_msm *context = NULL;
+static int htc_vbus_backup;
+#endif
 
 /**
  *
@@ -2568,6 +2580,63 @@ static void dwc3_init_adc_work(struct work_struct *w)
 	mdwc->id_adc_detect = true;
 }
 
+#ifdef CONFIG_MACH_M8
+void htc_dwc3_msm_otg_set_vbus_state(int online)
+{
+	struct dwc3_msm *mdwc = context;
+	struct dwc3_otg *dotg = container_of(mdwc->otg_xceiv->otg, struct dwc3_otg, otg);
+	dev_dbg(mdwc->dev, "%s: notify xceiv event\n", __func__);
+	printk(KERN_INFO "[USB] %s:%d\n", __func__, online);
+
+	if (mdwc->otg_xceiv) {
+		mdwc->ext_xceiv.bsv = online;
+		htc_vbus_backup = online;
+		queue_delayed_work(system_nrt_wq, &mdwc->resume_work, 20);
+	}
+	if (dotg->connect_type == 0 && online == 1) {
+		dotg->connect_type = CONNECT_TYPE_UNKNOWN;
+		queue_work(dotg->usb_wq, &dotg->notifier_work);
+	}
+	mdwc->vbus_active = online;
+	wake_lock_timeout(&mdwc->cable_detect_wlock, 3 * HZ);
+}
+
+int64_t  htc_qpnp_adc_get_usbid_adc(void)
+{
+	struct dwc3_msm *mdwc = context;
+	struct qpnp_vadc_result result;
+	int err = 0, adc = 0;
+
+	if (!context)
+		return -EAGAIN;
+
+	if(!mdwc->vadc_chip) {
+		mdwc->vadc_chip = qpnp_get_vadc(mdwc->dev, "dwc_usb3");
+		if (IS_ERR(mdwc->vadc_chip)) {
+			err = PTR_ERR(mdwc->vadc_chip);
+			printk(KERN_INFO "[USB] %s : qpnp_get_vadc return error code %d\n",__func__,err);
+			mdwc->vadc_chip = NULL;
+			return -EAGAIN;
+		}
+	}
+
+	printk(KERN_INFO "[USB] %s : vadc_chip %x\n",__func__,(unsigned int)mdwc->vadc_chip);
+
+	err = qpnp_vadc_read(mdwc->vadc_chip, LR_MUX10_USB_ID_LV, &result);
+	if (err < 0) {
+		pr_info("[CABLE] %s: get adc fail, err %d\n", __func__, err);
+		return err;
+	}
+
+	adc = result.physical;
+	adc /= 1000;
+	pr_info("[CABLE] chan=%d, adc_code=%d, measurement=%lld, \
+			physical=%lld translate voltage %d\n", result.chan, result.adc_code,
+			result.measurement, result.physical, adc);
+	return adc;
+}
+#endif
+
 static ssize_t adc_enable_show(struct device *dev,
 			       struct device_attribute *attr, char *buf)
 {
@@ -2795,6 +2864,9 @@ static int __devinit dwc3_msm_probe(struct platform_device *pdev)
 	}
 
 	platform_set_drvdata(pdev, mdwc);
+#ifdef CONFIG_MACH_M8
+	context = mdwc;
+#endif
 	mdwc->dev = &pdev->dev;
 
 	INIT_LIST_HEAD(&mdwc->req_complete_list);

@@ -155,6 +155,7 @@ static int of_batterydata_read_single_row_lut(struct device_node *data_node,
 	return 0;
 }
 
+#ifndef CONFIG_HTC_BATT_8960
 static int of_batterydata_read_batt_id_kohm(const struct device_node *np,
 				const char *propname, struct batt_ids *batt_ids)
 {
@@ -183,6 +184,7 @@ static int of_batterydata_read_batt_id_kohm(const struct device_node *np,
 
 	return 0;
 }
+#endif
 
 #define OF_PROP_READ(property, qpnp_dt_property, node, rc, optional)	\
 do {									\
@@ -239,6 +241,7 @@ static int of_batterydata_load_battery_data(struct device_node *node,
 	return rc;
 }
 
+#ifndef CONFIG_HTC_BATT_8960
 static int64_t of_batterydata_convert_battery_id_kohm(int batt_id_uv,
 				int rpull_up, int vadc_vdd)
 {
@@ -311,5 +314,44 @@ int of_batterydata_read_data(struct device_node *batterydata_container_node,
 	return of_batterydata_load_battery_data(best_node,
 					best_id_kohm, batt_data);
 }
+
+#else
+int of_batterydata_read_data_by_id_result(struct device_node *batterydata_container_node,
+				struct bms_battery_data *batt_data,
+				int id_result)
+{
+	struct device_node *node, *best_node = NULL;
+	int id_from_dt;
+	int rc = 0;
+
+	node = batterydata_container_node;
+
+	for_each_child_of_node(batterydata_container_node, node) {
+		best_node = node;
+
+		rc = of_property_read_u32(node, "htc,batt_id", &id_from_dt);
+		if (rc) {
+			pr_warn("get batt_id from dt failed rc=%d\n", rc);
+			continue;
+		}
+
+		if (id_result == id_from_dt)
+			break;
+
+		pr_debug("current node: %s, id_result:%d, id_from_dt:%d\n",
+				best_node->name, id_result, id_from_dt);
+	}
+
+	if (best_node == NULL) {
+		pr_err("No battery data found\n");
+		return -ENODATA;
+	}
+
+	pr_info("batterydata node: %s, id_from_dt:%d, id_result:%d\n",
+				best_node->name, id_from_dt, id_result);
+
+	return of_batterydata_load_battery_data(best_node, id_from_dt, batt_data);
+}
+#endif
 
 MODULE_LICENSE("GPL v2");

@@ -313,6 +313,11 @@ obj-$(CONFIG_TROUT_BATTCHG) += htc_battery.o
 
 obj-$(CONFIG_HTC_PWRSINK) += htc_pwrsink.o
 obj-$(CONFIG_HTC_HEADSET) += htc_headset.o
+obj-$(CONFIG_HTC_HEADSET_MGR) += htc_headset_mgr.o
+obj-$(CONFIG_HTC_HEADSET_PMIC) += htc_headset_pmic.o
+obj-$(CONFIG_HTC_HEADSET_ONE_WIRE) += htc_headset_one_wire.o
+obj-$(CONFIG_HTC_BATT_CORE) += htc_battery_core.o
+obj-$(CONFIG_HTC_BATT_8960) += htc_battery_8960.o htc_battery_cell.o
 obj-$(CONFIG_MSM_RMT_STORAGE_CLIENT) += rmt_storage_client.o
 obj-$(CONFIG_MSM_RPM) += rpm.o rpm_resources.o
 obj-$(CONFIG_MSM_LPM_TEST) += test-lpm.o
@@ -419,3 +424,12 @@ obj-$(CONFIG_WALL_CLK) += wallclk.o
 obj-$(CONFIG_WALL_CLK_SYSFS) += wallclk_sysfs.o
 obj-$(CONFIG_ARCH_RANDOM) += early_random.o
 obj-$(CONFIG_PERFMAP) += perfmap.o
+
+obj-$(CONFIG_MACH_M8) += board-htc-8974.o board-m8-gpiomux.o board-m8-audio.o
+obj-$(CONFIG_MACH_M8) += htc_acoustic_alsa.o rpm_htc_cmd.o htc_awb_cal.o
+obj-$(CONFIG_MACH_M8) += devices_cmdline.o devices_dtb.o htc_m8-panel.o
+obj-$(CONFIG_MACH_M8) += htc_bdaddress.o htc_wifi_nvs.o
+obj-$(CONFIG_MACH_M8) += htc_drm.o htc_rmtmsg.o htc_sdservice.o htc_simlock.o
+obj-$(CONFIG_MACH_M8) += htc_sysinfo.o htc_port_list.o htc_restart_handler.o
+
+obj-$(CONFIG_HTC_MONITOR) += htc_monitor.o

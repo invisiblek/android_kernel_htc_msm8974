@@ -27,6 +27,9 @@
 #include <linux/qpnp/qpnp-adc.h>
 #include <linux/qpnp/power-on.h>
 #include <linux/of_batterydata.h>
+#ifdef CONFIG_MACH_M8
+#include "mach/htc_battery_cell.h"
+#endif
 
 /* BMS Register Offsets */
 #define REVISION1			0x0
@@ -313,6 +316,13 @@ static int discard_backup_fcc_data(struct qpnp_bms_chip *chip);
 static void backup_charge_cycle(struct qpnp_bms_chip *chip);
 
 static bool bms_reset;
+#ifdef CONFIG_MACH_M8
+static struct qpnp_bms_chip *the_chip;
+static int batt_level = 0;
+static int new_boot_soc = 0;
+static unsigned long allow_ocv_time = 0;
+static int64_t read_battery_id(struct qpnp_bms_chip *chip);
+#endif
 
 static int qpnp_read_wrapper(struct qpnp_bms_chip *chip, u8 *val,
 			u16 base, int count)
@@ -3398,6 +3408,145 @@ static int qpnp_bms_power_get_property(struct power_supply *psy,
 	}
 	return 0;
 }
+
+#ifdef CONFIG_MACH_M8
+int pm8941_bms_get_batt_current(int *result)
+{
+	if (!the_chip) {
+		pr_warn("called before init\n");
+		return -EINVAL;
+	}
+
+	*result = get_prop_bms_current_now(the_chip);
+	return 0;
+}
+
+int pm8941_get_batt_id(int *result)
+{
+	int64_t battery_id_raw;
+	int battery_id_mv;
+
+	if (!the_chip) {
+		pr_err("called before init\n");
+		return -EINVAL;
+	}
+
+	battery_id_raw = read_battery_id(the_chip);
+	if (battery_id_raw < 0) {
+		pr_err("cannot read battery id err = %lld\n", battery_id_raw);
+		return -EINVAL;
+	}
+
+	battery_id_mv = (int)battery_id_raw / 1000;
+
+	*result = htc_battery_cell_find_and_set_id_auto(battery_id_mv);
+
+	return 0;
+}
+
+int pm8941_bms_get_batt_soc(int *result)
+{
+	int state_of_charge;
+	struct timespec xtime;
+	unsigned long currtime_ms;
+	unsigned long time_since_last_update_ms, cur_jiffies;
+
+	xtime = CURRENT_TIME;
+	currtime_ms = xtime.tv_sec * MSEC_PER_SEC + xtime.tv_nsec / NSEC_PER_MSEC;
+
+	if (!the_chip) {
+		pr_warn("called before init\n");
+		return -EINVAL;
+	}
+
+	batt_level = state_of_charge = *result = recalculate_soc(the_chip);
+
+	if (new_boot_soc && allow_ocv_time &&
+		(currtime_ms >= allow_ocv_time)) {
+		pr_info("OCV can be update due to currtime(%lu) >= allow_ocv_time(%lu) "
+				"(OCV_UPDATE_STOP_BIT_BOOT_UP)\n",
+				currtime_ms, allow_ocv_time);
+		new_boot_soc = 0;
+		allow_ocv_time = 0;
+
+		disable_ocv_update_with_reason(false, OCV_UPDATE_STOP_BIT_BOOT_UP);
+	}
+
+	if (the_chip->store_batt_data_soc_thre > 0
+			&& state_of_charge <= the_chip->store_batt_data_soc_thre
+			&& (store_soc_ui >= 0 && store_soc_ui <= 100)) {
+		store_emmc.store_soc = store_soc_ui;
+		store_emmc.store_currtime_ms = currtime_ms;
+	}
+
+
+	if (the_chip->criteria_sw_est_ocv > 0) {
+		cur_jiffies = jiffies;
+		time_since_last_update_ms =
+			(cur_jiffies - htc_batt_bms_timer.batt_system_jiffies) * MSEC_PER_SEC / HZ;
+		htc_batt_bms_timer.no_ocv_update_period_ms += time_since_last_update_ms;
+		htc_batt_bms_timer.batt_system_jiffies = cur_jiffies;
+	}
+
+	return 0;
+}
+
+int pm8941_bms_get_batt_cc(int *result)
+{
+	if (!the_chip) {
+		pr_warn("called before init\n");
+		return -EINVAL;
+	}
+
+	*result = get_prop_bms_charge_counter(the_chip);
+
+	return 0;
+}
+
+int pm8941_bms_store_battery_data_emmc(void)
+{
+	if (the_chip->store_batt_data_soc_thre > 0
+		&& store_emmc.store_soc > 0
+		&& store_emmc.store_soc <= the_chip->store_batt_data_soc_thre) {
+
+		emmc_misc_write(BMS_STORE_MAGIC_NUM, BMS_STORE_MAGIC_OFFSET);
+		emmc_misc_write(store_emmc.store_soc, BMS_STORE_SOC_OFFSET);
+		emmc_misc_write(store_emmc.store_ocv_uv, BMS_STORE_OCV_OFFSET);
+		emmc_misc_write(store_emmc.store_cc_uah, BMS_STORE_CC_OFFSET);
+		emmc_misc_write(store_emmc.store_currtime_ms, BMS_STORE_CURRTIME_OFFSET);
+
+		pr_info("Stored soc=%d,OCV=%d,ori_cc_uah=%d,stored_cc_uah:%d,currtime_ms=%lu\n",
+			store_emmc.store_soc, store_emmc.store_ocv_uv, bms_dbg.ori_cc_uah,
+			store_emmc.store_cc_uah, store_emmc.store_currtime_ms);
+	}
+
+	return 0;
+}
+
+int pm8941_bms_store_battery_ui_soc(int soc_ui)
+{
+	if (soc_ui < 0 || soc_ui > 100)
+		return -EINVAL;
+
+	store_soc_ui = soc_ui;
+
+	return 0;
+}
+
+int pm8941_bms_get_battery_ui_soc(void)
+{
+	if (!the_chip) {
+		pr_err("called before init\n");
+		return -EINVAL;
+	}
+	pr_debug("batt_stored_soc: %d\n", the_chip->batt_stored_soc);
+
+	if (the_chip->batt_stored_soc <= 0 || the_chip->batt_stored_soc > 100 || !consistent_flag)
+		return -EINVAL;
+
+	return the_chip->batt_stored_soc;
+}
+#endif
 
 #define OCV_USE_LIMIT_EN		BIT(7)
 static int set_ocv_voltage_thresholds(struct qpnp_bms_chip *chip,

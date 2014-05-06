@@ -217,6 +217,15 @@ struct dsi_drv_cm_data {
 	int broadcast_enable;
 };
 
+#ifdef CONFIG_MACH_M8
+struct mdss_dsi_pwrctrl {
+	int (*dsi_regulator_init) (struct platform_device *pdev);
+	int (*dsi_regulator_deinit) (struct platform_device *pdev);
+	int (*dsi_power_on) (struct mdss_panel_data *pdata, int enable);
+	void (*dsi_panel_reset) (struct mdss_panel_data *pdata, int enable);
+};
+#endif
+
 enum {
 	DSI_CTRL_0,
 	DSI_CTRL_1,
@@ -292,6 +301,9 @@ struct mdss_dsi_ctrl_pdata {
 
 	struct dsi_buf tx_buf;
 	struct dsi_buf rx_buf;
+#ifdef CONFIG_MACH_M8
+	void *dsi_pwrctrl_data;
+#endif
 };
 
 int dsi_panel_device_register(struct device_node *pan_node,

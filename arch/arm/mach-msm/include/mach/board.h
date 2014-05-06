@@ -665,6 +665,44 @@ void msm_hsusb_set_vbus_state(int online);
 static inline void msm_hsusb_set_vbus_state(int online) {}
 #endif
 
+#ifdef CONFIG_CABLE_DETECT_8XXX
+static LIST_HEAD(g_lh_calbe_detect_notifier_list);
+static LIST_HEAD(g_lh_usb_host_detect_notifier_list);
+static LIST_HEAD(g_lh_usb_notifier_list);
+void htc_dwc3_msm_otg_set_vbus_state(int online);
+
+struct t_usb_status_notifier{
+	struct list_head notifier_link;
+	const char *name;
+	void (*func)(int cable_type);
+};
+
+struct t_cable_status_notifier{
+	struct list_head cable_notifier_link;
+	const char *name;
+	void (*func)(int cable_type);
+};
+
+struct t_usb_host_status_notifier{
+	struct list_head usb_host_notifier_link;
+	const char *name;
+	void (*func)(bool cable_in);
+};
+
+enum usb_connect_type {
+	CONNECT_TYPE_CLEAR = -2,
+	CONNECT_TYPE_UNKNOWN = -1,
+	CONNECT_TYPE_NONE = 0,
+	CONNECT_TYPE_USB,
+	CONNECT_TYPE_AC,
+	CONNECT_TYPE_9V_AC,
+	CONNECT_TYPE_WIRELESS,
+	CONNECT_TYPE_INTERNAL,
+	CONNECT_TYPE_UNSUPPORTED,
+	CONNECT_TYPE_MHL_AC,
+};
+#endif
+
 void msm_snddev_init(void);
 void msm_snddev_init_timpani(void);
 void msm_snddev_poweramp_on(void);
@@ -677,4 +715,10 @@ void msm_snddev_tx_route_deconfig(void);
 extern phys_addr_t msm_shared_ram_phys; /* defined in arch/arm/mach-msm/io.c */
 
 
+#endif
+
+#ifdef CONFIG_MACH_M8
+int64_t htc_qpnp_adc_get_usbid_adc(void);
+void msm_htc_8974_init_gpiomux(void);
+extern int get_partition_num_by_name(char *name);
 #endif

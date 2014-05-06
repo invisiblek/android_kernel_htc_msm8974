@@ -124,6 +124,11 @@ struct bms_battery_data {
 	int			cutoff_uv;
 	int			iterm_ua;
 	int			batt_id_kohm;
+#ifdef CONFIG_HTC_BATT_8960
+	int			qc20_ibatmax_ma;
+	int			qc20_ibatsafe_ma;
+	struct sf_lut		*rbatt_est_ocv_lut;
+#endif
 };
 
 #if defined(CONFIG_PM8921_BMS) || \

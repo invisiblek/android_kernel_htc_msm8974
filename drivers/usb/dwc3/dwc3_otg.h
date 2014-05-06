@@ -22,6 +22,10 @@
 #include <linux/usb/otg.h>
 #include "power.h"
 
+#ifdef CONFIG_MACH_M8
+#include <mach/board.h>
+#endif
+
 #define DWC3_IDEV_CHG_MAX 1500
 
 struct dwc3_charger;
@@ -52,6 +56,12 @@ struct dwc3_otg {
 	int			host_bus_suspend;
 	int			charger_retry_count;
 	int			vbus_retry_count;
+#ifdef CONFIG_MACH_M8
+	int			connect_type_ready;
+	struct workqueue_struct	*usb_wq;
+        struct work_struct	notifier_work;
+	enum usb_connect_type	connect_type;
+#endif
 };
 
 /**

@@ -388,6 +388,10 @@ static inline int pm8921_is_batfet_closed(void)
 {
 	return 1;
 }
+static inline int pm8921_is_pwrsrc_under_rating(int *result)
+{
+	return -ENXIO;
+}
 #endif
 
 #endif

@@ -78,6 +78,20 @@ struct scm_response {
 	u32	is_complete;
 };
 
+#ifdef CONFIG_MACH_M8
+struct oem_access_item_req {
+	u32	is_write;
+	u32	id;
+	u32	buf_len;
+	void	*buf;
+};
+
+struct oem_simlock_unlock_req {
+	u32	unlock;
+	void	*code;
+};
+#endif
+
 /**
  * scm_command_to_response() - Get a pointer to a scm_response
  * @cmd: command
@@ -172,7 +186,7 @@ static int __scm_call(const struct scm_command *cmd)
 	return ret;
 }
 
-static void scm_inv_range(unsigned long start, unsigned long end)
+void scm_inv_range(unsigned long start, unsigned long end)
 {
 	u32 cacheline_size, ctr;
 
@@ -496,6 +510,91 @@ u32 scm_get_version(void)
 	return version;
 }
 EXPORT_SYMBOL(scm_get_version);
+
+#ifdef CONFIG_MACH_M8
+int secure_access_item(unsigned int is_write, unsigned int id, unsigned int buf_len, unsigned char *buf)
+{
+	int ret;
+	struct oem_access_item_req req;
+
+	req.is_write = is_write;
+	req.id = id;
+	req.buf_len = buf_len;
+	req.buf = (void *)virt_to_phys(buf);
+
+	ret = scm_call(SCM_SVC_OEM, TZ_HTC_SVC_ACCESS_ITEM,
+			&req, sizeof(req), NULL, 0);
+
+	pr_info("TZ_HTC_SVC_ACCESS_ITEM id %d ret = %d\n", id, ret);
+	return ret;
+}
+
+void scm_flush_range(unsigned long start, unsigned long end)
+{
+	u32 buf_addr, len;
+
+	if (end <= start)
+		return;
+
+	buf_addr = virt_to_phys((void *)start);
+	len = end - start;
+
+	__cpuc_flush_dcache_area((void *)start, len);
+	outer_flush_range(buf_addr, buf_addr + len);
+}
+EXPORT_SYMBOL(scm_flush_range);
+
+int secure_simlock_unlock(unsigned int unlock, unsigned char *code)
+{
+	int ret;
+	struct oem_simlock_unlock_req req;
+
+	req.unlock = unlock;
+	req.code = (void *)virt_to_phys(code);
+
+	ret = scm_call(SCM_SVC_OEM, TZ_HTC_SVC_SIMLOCK_UNLOCK,
+			&req, sizeof(req), NULL, 0);
+
+	pr_info("TZ_HTC_SVC_SIMLOCK_UNLOCK ret = %d\n", ret);
+	return ret;
+}
+EXPORT_SYMBOL(secure_simlock_unlock);
+
+int secure_read_simlock_mask(void)
+{
+	int ret;
+	u32 dummy;
+
+	ret = scm_call(SCM_SVC_OEM, TZ_HTC_SVC_READ_SIMLOCK_MASK,
+			&dummy, sizeof(dummy), NULL, 0);
+
+	pr_info("TZ_HTC_SVC_READ_SIMLOCK_MASK ret = %d\n", ret);
+	if (ret > 0)
+		ret &= 0x1F;
+	pr_info("TZ_HTC_SVC_READ_SIMLOCK_MASK modified ret = %d\n", ret);
+
+	return ret;
+}
+EXPORT_SYMBOL(secure_read_simlock_mask);
+
+int secure_get_security_level(void)
+{
+	int ret;
+	u32 dummy;
+
+	ret = scm_call(SCM_SVC_OEM, TZ_HTC_SVC_GET_SECURITY_LEVEL,
+			&dummy, sizeof(dummy), NULL, 0);
+
+	pr_info("TZ_HTC_SVC_GET_SECURITY_LEVEL ret = %d\n", ret);
+	if (ret > 0)
+		ret &= 0x0F;
+	pr_info("TZ_HTC_SVC_GET_SECURITY_LEVEL modified ret = %d\n", ret);
+
+	return ret;
+}
+EXPORT_SYMBOL(secure_get_security_level);
+
+#endif
 
 #define IS_CALL_AVAIL_CMD	1
 int scm_is_call_available(u32 svc_id, u32 cmd_id)

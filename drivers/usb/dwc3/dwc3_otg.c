@@ -24,6 +24,34 @@
 #include "io.h"
 #include "xhci.h"
 
+#ifdef CONFIG_MACH_M8
+#include <mach/board.h>
+
+static struct dwc3_otg *the_dwc3_otg;
+static DEFINE_MUTEX(notify_sem);
+
+int htc_dwc3_get_cable_type(void)
+{
+	if (!the_dwc3_otg) {
+		printk(KERN_INFO "[USB] %s : usb function not ready\n",__func__);
+		return 0;
+	}
+	return the_dwc3_otg->charger->chg_type;
+}
+#endif
+
+int htc_dwc3_usb_register_notifier(struct t_usb_status_notifier *notifier)
+{
+	if (!notifier || !notifier->name || !notifier->func)
+		return -EINVAL;
+
+	mutex_lock(&notify_sem);
+	list_add(&notifier->notifier_link,
+			&g_lh_usb_notifier_list);
+	mutex_unlock(&notify_sem);
+	return 0;
+}
+
 #define VBUS_REG_CHECK_DELAY	(msecs_to_jiffies(1000))
 #define MAX_INVALID_CHRGR_RETRY 3
 static int max_chgr_retry_count = MAX_INVALID_CHRGR_RETRY;

@@ -26,6 +26,19 @@ struct android_usb_platform_data {
 	u32 swfi_latency;
 	u8 usb_core_id;
 	bool cdrom;
+#ifdef CONFIG_MACH_M8
+	__u16 vendor_id;
+	__u16 product_id;
+	char *product_name;
+	char *manufacturer_name;
+	char *serial_number;
+	const char *fserial_init_string;
+	const char *usb_rmnet_interface;
+	const char *usb_diag_interface;
+	int nluns;
+	int cdrom_lun;
+	int vzw_unmount_cdrom;
+#endif
 	bool internal_ums;
 	char streaming_func[MAX_STREAMING_FUNCS][FUNC_NAME_LEN];
 	int  streaming_func_count;

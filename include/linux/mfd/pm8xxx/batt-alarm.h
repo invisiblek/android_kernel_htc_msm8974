@@ -195,7 +195,18 @@ static inline int
 pm8xxx_batt_alarm_pwm_rate_set(int use_pwm, int clock_scaler, int clock_divider)
 { return -ENODEV; }
 
-#endif
+static inline int
+pm8xxx_batt_lower_alarm_register_notifier(void (*callback)(int))
+{ return -ENODEV; }
 
+static inline int
+pm8xxx_batt_lower_alarm_enable(int enable)
+{ return -ENODEV; }
+
+static inline int
+pm8xxx_batt_lower_alarm_threshold_set(int threshold_mV)
+{ return -ENODEV; }
+
+#endif
 
 #endif /* __MFD_PM8XXX_BATT_ALARM_H__ */
