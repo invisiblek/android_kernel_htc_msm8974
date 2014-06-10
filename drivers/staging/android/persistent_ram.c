@@ -32,7 +32,7 @@ struct persistent_ram_buffer {
 	uint8_t     data[0];
 };
 
-#define PERSISTENT_RAM_SIG (0x43474244) /* DBGC */
+#define PERSISTENT_RAM_SIG (0x43474244) 
 
 static __devinitdata LIST_HEAD(persistent_ram_list);
 
@@ -46,7 +46,6 @@ static inline size_t buffer_start(struct persistent_ram_zone *prz)
 	return atomic_read(&prz->buffer->start);
 }
 
-/* increase and wrap the start pointer, returning the old value */
 static inline size_t buffer_start_add(struct persistent_ram_zone *prz, size_t a)
 {
 	int old;
@@ -62,7 +61,6 @@ static inline size_t buffer_start_add(struct persistent_ram_zone *prz, size_t a)
 	return old;
 }
 
-/* increase the size counter until it hits the max size */
 static inline void buffer_size_add(struct persistent_ram_zone *prz, size_t a)
 {
 	size_t old;
@@ -79,7 +77,6 @@ static inline void buffer_size_add(struct persistent_ram_zone *prz, size_t a)
 	} while (atomic_cmpxchg(&prz->buffer->size, old, new) != old);
 }
 
-/* increase the size counter, retuning an error if it hits the max size */
 static inline ssize_t buffer_size_add_clamp(struct persistent_ram_zone *prz,
 	size_t a)
 {
@@ -102,7 +99,7 @@ static void notrace persistent_ram_encode_rs8(struct persistent_ram_zone *prz,
 	int i;
 	uint16_t par[prz->ecc_size];
 
-	/* Initialize the parity buffer */
+	
 	memset(par, 0, sizeof(par));
 	encode_rs8(prz->rs_decoder, data, len, par, 0);
 	for (i = 0; i < prz->ecc_size; i++)
@@ -217,10 +214,6 @@ static int persistent_ram_init_ecc(struct persistent_ram_zone *prz,
 	prz->par_buffer = buffer->data + prz->buffer_size;
 	prz->par_header = prz->par_buffer + ecc_blocks * prz->ecc_size;
 
-	/*
-	 * first consecutive root is 0
-	 * primitive element to generate roots = 1
-	 */
 	prz->rs_decoder = init_rs(prz->ecc_symsize, prz->ecc_poly, 0, 1,
 				  prz->ecc_size);
 	if (prz->rs_decoder == NULL) {
@@ -399,7 +392,7 @@ static int __devinit persistent_ram_buffer_init(const char *name,
 }
 
 static  __devinit
-struct persistent_ram_zone *__persistent_ram_init(struct device *dev, bool ecc)
+struct persistent_ram_zone *__persistent_ram_init(const char *name, bool ecc)
 {
 	struct persistent_ram *ram;
 	struct persistent_ram_zone *prz;
@@ -413,7 +406,7 @@ struct persistent_ram_zone *__persistent_ram_init(struct device *dev, bool ecc)
 
 	INIT_LIST_HEAD(&prz->node);
 
-	ret = persistent_ram_buffer_init(dev_name(dev), prz, &ram);
+	ret = persistent_ram_buffer_init(name, prz, &ram);
 	if (ret) {
 		pr_err("persistent_ram: failed to initialize buffer\n");
 		goto err;
@@ -454,7 +447,13 @@ err:
 struct persistent_ram_zone * __devinit
 persistent_ram_init_ringbuffer(struct device *dev, bool ecc)
 {
-	return __persistent_ram_init(dev, ecc);
+	return persistent_ram_init_ringbuffer_by_name(dev_name(dev), ecc);
+}
+
+struct persistent_ram_zone * __devinit
+persistent_ram_init_ringbuffer_by_name(const char *name, bool ecc)
+{
+	return __persistent_ram_init(name, ecc);
 }
 
 int __init persistent_ram_early_init(struct persistent_ram *ram)

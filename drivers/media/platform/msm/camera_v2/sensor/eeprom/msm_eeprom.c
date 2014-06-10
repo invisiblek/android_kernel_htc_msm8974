@@ -389,7 +389,7 @@ static struct msm_cam_clk_info cam_8960_clk_info[] = {
 };
 
 static struct msm_cam_clk_info cam_8974_clk_info[] = {
-	[SENSOR_CAM_MCLK] = {"cam_src_clk", 19200000},
+	[SENSOR_CAM_MCLK] = {"cam_src_clk", 24000000},
 	[SENSOR_CAM_CLK] = {"cam_clk", 0},
 };
 
@@ -448,7 +448,7 @@ int32_t msm_eeprom_i2c_probe(struct i2c_client *client,
 	e_ctrl->i2c_client.client = client;
 	e_ctrl->is_supported = 0;
 
-	/* Set device type as I2C */
+	
 	e_ctrl->eeprom_device_type = MSM_CAMERA_I2C_DEVICE;
 	e_ctrl->i2c_client.i2c_func_tbl = &msm_eeprom_qup_func_tbl;
 
@@ -498,8 +498,8 @@ int32_t msm_eeprom_i2c_probe(struct i2c_client *client,
 		goto power_down;
 	}
 
-	/*IMPLEMENT READING PART*/
-	/* Initialize sub device */
+	
+	
 	v4l2_i2c_subdev_init(&e_ctrl->msm_sd.sd,
 		e_ctrl->i2c_client.client,
 		e_ctrl->eeprom_v4l2_subdev_ops);
@@ -667,7 +667,7 @@ static int msm_eeprom_spi_setup(struct spi_device *spi)
 	if (rc)
 		goto board_free;
 
-	/* set spi instruction info */
+	
 	spi_client->retry_delay = 1;
 	spi_client->retries = 0;
 
@@ -688,13 +688,13 @@ static int msm_eeprom_spi_setup(struct spi_device *spi)
 		goto memmap_free;
 	}
 
-	/* check eeprom id */
+	
 	rc = msm_eeprom_check_id(e_ctrl);
 	if (rc) {
 		CDBG("%s: eeprom not matching %d\n", __func__, rc);
 		goto power_down;
 	}
-	/* read eeprom */
+	
 	rc = read_eeprom_memory(e_ctrl);
 	if (rc) {
 		dev_err(&spi->dev, "%s: read eeprom memory failed\n", __func__);
@@ -708,7 +708,7 @@ static int msm_eeprom_spi_setup(struct spi_device *spi)
 		goto memmap_free;
 	}
 
-	/* initiazlie subdev */
+	
 	v4l2_spi_subdev_init(&e_ctrl->msm_sd.sd,
 		e_ctrl->i2c_client.spi_client->spi_master,
 		e_ctrl->eeprom_v4l2_subdev_ops);
@@ -839,9 +839,9 @@ static int32_t msm_eeprom_platform_probe(struct platform_device *pdev)
 		return rc;
 	}
 
-	/* Set platform device handle */
+	
 	e_ctrl->pdev = pdev;
-	/* Set device type as platform device */
+	
 	e_ctrl->eeprom_device_type = MSM_CAMERA_PLATFORM_DEVICE;
 	e_ctrl->i2c_client.i2c_func_tbl = &msm_eeprom_cci_func_tbl;
 	e_ctrl->i2c_client.cci_client = kzalloc(sizeof(

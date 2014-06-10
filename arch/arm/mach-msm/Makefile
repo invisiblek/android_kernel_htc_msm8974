@@ -428,3 +428,19 @@ obj-$(CONFIG_WALL_CLK) += wallclk.o
 obj-$(CONFIG_WALL_CLK_SYSFS) += wallclk_sysfs.o
 obj-$(CONFIG_ARCH_RANDOM) += early_random.o
 obj-$(CONFIG_PERFMAP) += perfmap.o
+
+ifdef CONFIG_MACH_M8
+obj-y += board-htc-8974.o board-m8-gpiomux.o board-m8-audio.o board-m8-panel.o board-m8-wifi.o
+obj-y += htc_sysinfo.o htc_awb_cal.o htc_bdaddress.o htc_acoustic_alsa.o
+obj-y += devices_cmdline.o devices_dtb.o radio_feedback.o smlog.o
+
+obj-$(CONFIG_HTC_BATT_CORE) += htc_battery_core.o
+obj-$(CONFIG_HTC_BATT_8960) += htc_battery_8960.o htc_battery_cell.o
+obj-$(CONFIG_HTC_HEADSET) += htc_headset.o
+obj-$(CONFIG_HTC_HEADSET_MGR) += htc_headset_mgr.o
+obj-$(CONFIG_HTC_HEADSET_PMIC) += htc_headset_pmic.o
+obj-$(CONFIG_HTC_HEADSET_ONE_WIRE) += htc_headset_one_wire.o
+obj-$(CONFIG_HTC_RPM_CMD) += rpm_htc_cmd.o
+obj-$(CONFIG_HTC_MONITOR) += htc_monitor.o
+obj-$(CONFIG_MSM_NATIVE_RESTART) += htc_restart_handler.o
+endif

@@ -31,6 +31,10 @@
 #include <linux/idr.h>
 #include <linux/interrupt.h>
 #include <linux/of_gpio.h>
+#ifdef CONFIG_MACH_M8
+#include <linux/pm_qos.h>
+#include <linux/vmalloc.h>
+#endif
 
 #include <asm/uaccess.h>
 #include <asm/setup.h>
@@ -47,6 +51,10 @@
 	dev_info(desc->dev, "%s: " fmt, desc->name, ##__VA_ARGS__)
 
 #define PIL_IMAGE_INFO_BASE	(MSM_IMEM_BASE + 0x94c)
+
+#ifdef CONFIG_MACH_M8
+struct pm_qos_request wcnss_pm_qos_req;
+#endif
 
 /**
  * proxy_timeout - Override for proxy vote timeouts
@@ -252,6 +260,13 @@ static irqreturn_t proxy_unvote_intr_handler(int irq, void *dev_id)
 	struct pil_desc *desc = dev_id;
 	struct pil_priv *priv = desc->priv;
 
+#ifdef CONFIG_MACH_M8
+	if ( strncmp(desc->name, "wcnss",5)==0) {
+		pm_qos_update_request(&wcnss_pm_qos_req, PM_QOS_DEFAULT_VALUE );
+		pil_info(desc, " release wcnss_pm_qos_req \n");
+	}
+#endif
+
 	pil_info(desc, "Power/Clock ready interrupt received\n");
 	if (!desc->priv->unvoted_flag) {
 		desc->priv->unvoted_flag = 1;
@@ -294,6 +309,13 @@ static struct pil_seg *pil_init_seg(const struct pil_desc *desc,
 	seg = kmalloc(sizeof(*seg), GFP_KERNEL);
 	if (!seg)
 		return ERR_PTR(-ENOMEM);
+
+#ifdef CONFIG_MACH_M8
+	if (!strcmp(desc->name, "venus") && reloc) {
+		reloc = false;
+	}
+#endif
+
 	seg->num = num;
 	seg->paddr = reloc ? pil_reloc(priv, phdr->p_paddr) : phdr->p_paddr;
 	seg->filesz = phdr->p_filesz;
@@ -424,7 +446,11 @@ static int pil_setup_region(struct pil_priv *priv, const struct pil_mdt *mdt)
 		start = phdr->p_paddr;
 		end = start + phdr->p_memsz;
 
+#ifdef CONFIG_MACH_M8
+		if (segment_is_relocatable(phdr)&& strcmp(priv->desc->name, "venus") ) {
+#else
 		if (segment_is_relocatable(phdr)) {
+#endif
 			min_addr_r = min(min_addr_r, start);
 			max_addr_r = max(max_addr_r, end);
 			/*
@@ -482,8 +508,48 @@ static int pil_init_mmap(struct pil_desc *desc, const struct pil_mdt *mdt)
 	if (ret)
 		return ret;
 
+#ifdef CONFIG_MACH_M8
+	if ( strncmp(desc->name, "wcnss",5)==0) {
+		pm_qos_update_request(&wcnss_pm_qos_req, 1);
+		pil_info(desc, "request wcnss_pm_qos_req \n");
+	}
+#endif
 	pil_info(desc, "loading from %pa to %pa\n", &priv->region_start,
 							&priv->region_end);
+
+#ifdef CONFIG_MACH_M8
+	if(NULL == desc->vaddr)
+	{
+		struct page **pages;
+		phys_addr_t page_start;
+		unsigned int page_count;
+		pgprot_t prot;
+
+		ret = memblock_reserve(priv->region_start, (priv->region_end - priv->region_start));
+		if (ret) {
+			pr_err("Failed to reserve memory from %08lx-%08lx\n",
+				(long)priv->region_start, (long)(priv->region_end - 1));
+			return ret;
+		}
+
+		page_start = priv->region_start - offset_in_page(priv->region_start);
+		page_count = DIV_ROUND_UP((priv->region_end - priv->region_start) + offset_in_page(priv->region_start), PAGE_SIZE);
+		prot = pgprot_noncached(PAGE_KERNEL);
+		pages = kmalloc(sizeof(struct page *) * page_count, GFP_KERNEL);
+		if (!pages) {
+			pr_err("%s: Failed to allocate array for %u pages\n", __func__,
+			page_count);
+			return -ENOMEM;
+		}
+		for (i = 0; i < page_count; i++) {
+			phys_addr_t addr = page_start + i * PAGE_SIZE;
+			pages[i] = pfn_to_page(addr >> PAGE_SHIFT);
+		}
+		desc->vaddr = (unsigned char *)vmap(pages, page_count, VM_MAP, prot);
+		desc->image_length = (unsigned int)priv->region_end - priv->region_start;
+		kfree(pages);
+	}
+#endif
 
 	for (i = 0; i < mdt->hdr.e_phnum; i++) {
 		phdr = &mdt->phdr[i];
@@ -799,6 +865,10 @@ int pil_desc_init(struct pil_desc *desc)
 		disable_irq(desc->proxy_unvote_irq);
 	}
 
+#ifdef CONFIG_MACH_M8
+	desc->vaddr = NULL;
+#endif
+
 	snprintf(priv->wname, sizeof(priv->wname), "pil-%s", desc->name);
 	wake_lock_init(&priv->wlock, WAKE_LOCK_SUSPEND, priv->wname);
 	INIT_DELAYED_WORK(&priv->proxy, pil_proxy_unvote_work);
@@ -851,6 +921,9 @@ static int __init msm_pil_init(void)
 	ion = msm_ion_client_create(UINT_MAX, "pil");
 	if (IS_ERR(ion)) /* Can't support relocatable images */
 		ion = NULL;
+#ifdef CONFIG_MACH_M8
+	pm_qos_add_request(&wcnss_pm_qos_req, PM_QOS_CPU_DMA_LATENCY, PM_QOS_DEFAULT_VALUE);
+#endif
 	return register_pm_notifier(&pil_pm_notifier);
 }
 device_initcall(msm_pil_init);
@@ -860,6 +933,9 @@ static void __exit msm_pil_exit(void)
 	unregister_pm_notifier(&pil_pm_notifier);
 	if (ion)
 		ion_client_destroy(ion);
+#ifdef CONFIG_MACH_M8
+	pm_qos_remove_request(&wcnss_pm_qos_req);
+#endif
 }
 module_exit(msm_pil_exit);
 

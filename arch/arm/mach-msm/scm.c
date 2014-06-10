@@ -172,7 +172,7 @@ static int __scm_call(const struct scm_command *cmd)
 	return ret;
 }
 
-static void scm_inv_range(unsigned long start, unsigned long end)
+void scm_inv_range(unsigned long start, unsigned long end)
 {
 	u32 cacheline_size, ctr;
 

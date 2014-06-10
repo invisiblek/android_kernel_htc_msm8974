@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -29,13 +29,14 @@
 #include "msm.h"
 #include "msm_vb2.h"
 #include "msm_sd.h"
+#include <media/msmb_generic_buf_mgr.h>
+
 
 static struct v4l2_device *msm_v4l2_dev;
 static struct list_head    ordered_sd_list;
 
 static struct msm_queue_head *msm_session_q;
 
-/* config node envent queue */
 static struct v4l2_fh  *msm_eventq;
 spinlock_t msm_eventq_lock;
 
@@ -167,7 +168,6 @@ static void msm_enqueue(struct msm_queue_head *qhead,
 	spin_unlock_irqrestore(&qhead->lock, flags);
 }
 
-/* index = session id */
 static inline int __msm_queue_find_session(void *d1, void *d2)
 {
 	struct msm_session *session = d1;
@@ -217,6 +217,10 @@ int msm_create_stream(unsigned int session_id,
 	spin_lock_init(&stream->stream_lock);
 	msm_enqueue(&session->stream_q, &stream->list);
 	session->stream_q.len++;
+	
+	stream->num_total = 0;
+	stream->num_lend = 0;
+	
 
 	INIT_LIST_HEAD(&stream->queued_list);
 
@@ -264,9 +268,6 @@ static inline int __msm_sd_register_subdev(struct v4l2_subdev *sd)
 	if (rc < 0)
 		return rc;
 
-	/* Register a device node for every subdev marked with the
-	 * V4L2_SUBDEV_FL_HAS_DEVNODE flag.
-	 */
 	if (!(sd->flags & V4L2_SUBDEV_FL_HAS_DEVNODE))
 		return rc;
 
@@ -473,8 +474,6 @@ static void msm_remove_session_cmd_ack_q(struct msm_session *session)
 		return;
 
 	mutex_lock(&session->lock);
-	/* to ensure error handling purpose, it needs to detach all subdevs
-	 * which are being connected to streams */
 	msm_queue_traverse_action(&session->command_ack_q,
 		struct msm_command_ack,	list,
 		__msm_remove_session_cmd_ack_q, NULL);
@@ -487,6 +486,7 @@ static void msm_remove_session_cmd_ack_q(struct msm_session *session)
 int msm_destroy_session(unsigned int session_id)
 {
 	struct msm_session *session;
+	struct v4l2_subdev *buf_mgr_subdev;
 
 	session = msm_queue_find(msm_session_q, struct msm_session,
 		list, __msm_queue_find_session, &session_id);
@@ -498,6 +498,12 @@ int msm_destroy_session(unsigned int session_id)
 	mutex_destroy(&session->lock);
 	msm_delete_entry(msm_session_q, struct msm_session,
 		list, session);
+	buf_mgr_subdev = msm_buf_mngr_get_subdev();
+	if (buf_mgr_subdev) {
+		v4l2_subdev_call(buf_mgr_subdev, core, ioctl,
+			MSM_SD_SHUTDOWN, NULL);
+	} else
+		pr_err("%s: Buff manger device node is NULL\n", __func__);
 
 	return 0;
 }
@@ -583,7 +589,7 @@ static long msm_private_ioctl(struct file *file, void *fh,
 		break;
 
 	case MSM_CAM_V4L2_IOCTL_NOTIFY_ERROR:
-		/* send v4l2_event to HAL next*/
+		
 		msm_queue_traverse_action(msm_session_q,
 			struct msm_session, list,
 			__msm_close_destry_session_notify_apps, NULL);
@@ -631,9 +637,6 @@ static unsigned int msm_poll(struct file *f,
 	return rc;
 }
 
-/* something seriously wrong if msm_close is triggered
- *   !!! user space imaging server is shutdown !!!
- */
 int msm_post_event(struct v4l2_event *event, int timeout)
 {
 	int rc = 0;
@@ -658,7 +661,7 @@ int msm_post_event(struct v4l2_event *event, int timeout)
 
 	vdev = msm_eventq->vdev;
 
-	/* send to imaging server and wait for ACK */
+	
 	session = msm_queue_find(msm_session_q, struct msm_session,
 		list, __msm_queue_find_session, &session_id);
 	if (WARN_ON(!session))
@@ -679,7 +682,7 @@ int msm_post_event(struct v4l2_event *event, int timeout)
 		return rc;
 	}
 
-	/* should wait on session based condition */
+	
 	do {
 		rc = wait_event_interruptible_timeout(cmd_ack->wait,
 			!list_empty_careful(&cmd_ack->command_q.list),
@@ -709,7 +712,7 @@ int msm_post_event(struct v4l2_event *event, int timeout)
 
 	event_data = (struct msm_v4l2_event_data *)cmd->event.u.data;
 
-	/* compare cmd_ret and event */
+	
 	if (WARN_ON(event->type != cmd->event.type) ||
 			WARN_ON(event->id != cmd->event.id))
 		rc = -EINVAL;
@@ -729,12 +732,12 @@ static int msm_close(struct file *filep)
 	struct msm_sd_close_ioctl sd_close;
 	struct msm_sd_subdev *msm_sd;
 
-	/*stop all hardware blocks immediately*/
+	
 	if (!list_empty(&msm_v4l2_dev->subdevs))
 		list_for_each_entry(msm_sd, &ordered_sd_list, list)
 			__msm_sd_close_subdevs(msm_sd, &sd_close);
 
-	/* send v4l2_event to HAL next*/
+	
 	msm_queue_traverse_action(msm_session_q, struct msm_session, list,
 		__msm_close_destry_session_notify_apps, NULL);
 
@@ -771,7 +774,7 @@ static int msm_open(struct file *filep)
 	struct msm_video_device *pvdev = video_drvdata(filep);
 	BUG_ON(!pvdev);
 
-	/* !!! only ONE open is allowed !!! */
+	
 	if (atomic_read(&pvdev->opened))
 		return -EBUSY;
 
@@ -781,7 +784,7 @@ static int msm_open(struct file *filep)
 	msm_pid = get_pid(task_pid(current));
 	spin_unlock_irqrestore(&msm_pid_lock, flags);
 
-	/* create event queue */
+	
 	rc = v4l2_fh_open(filep);
 	if (rc  < 0)
 		return rc;
@@ -893,7 +896,7 @@ static void msm_sd_notify(struct v4l2_subdev *sd,
 	BUG_ON(!sd);
 	BUG_ON(!arg);
 
-	/* Check if subdev exists before processing*/
+	
 	if (!msm_sd_find(sd->name))
 		return;
 
@@ -902,7 +905,7 @@ static void msm_sd_notify(struct v4l2_subdev *sd,
 		struct msm_sd_req_sd *get_sd = arg;
 
 		get_sd->subdev = msm_sd_find(get_sd->name);
-		/* TODO: might need to add ref count on ret_sd */
+		
 	}
 		break;
 
@@ -993,7 +996,7 @@ static int __devinit msm_probe(struct platform_device *pdev)
 		goto v4l2_fail;
 
 #if defined(CONFIG_MEDIA_CONTROLLER)
-	/* FIXME: How to get rid of this messy? */
+	
 	pvdev->vdev->entity.name = video_device_node_name(pvdev->vdev);
 #endif
 

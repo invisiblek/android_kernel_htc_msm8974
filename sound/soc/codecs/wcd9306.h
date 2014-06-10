@@ -56,7 +56,6 @@ enum tapan_mbhc_analog_pwr_cfg {
 	TAPAN_NUM_ANALOG_PWR_CONFIGS,
 };
 
-/* Number of input and output Slimbus port */
 enum {
 	TAPAN_RX1 = 0,
 	TAPAN_RX2,
@@ -85,4 +84,11 @@ extern void tapan_event_register(
 	int (*machine_event_cb)(struct snd_soc_codec *codec,
 				 enum wcd9xxx_codec_event),
 	struct snd_soc_codec *codec);
+
+int htc_micbias_capless(struct snd_kcontrol *kcontrol,
+                struct snd_ctl_elem_value *ucontrol);
+
+int htc_micbias_capless_get(struct snd_kcontrol *kcontrol,
+                struct snd_ctl_elem_value *ucontrol);
+
 #endif

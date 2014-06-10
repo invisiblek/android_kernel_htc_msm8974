@@ -115,7 +115,7 @@ static void tpiu_flush_and_stop(struct tpiu_drvdata *drvdata)
 	tpiu_writel(drvdata, ffcr, TPIU_FFCR);
 	ffcr |= BIT(6);
 	tpiu_writel(drvdata, ffcr, TPIU_FFCR);
-	/* Ensure flush completes */
+	
 	for (count = TIMEOUT_US; BVAL(tpiu_readl(drvdata, TPIU_FFCR), 6) != 0
 				&& count > 0; count--)
 		udelay(1);
@@ -434,7 +434,7 @@ static ssize_t tpiu_store_out_mode(struct device *dev,
 
 	if (strlen(buf) >= 10)
 		return -EINVAL;
-	if (sscanf(buf, "%s", str) != 1)
+	if (sscanf(buf, "%10s", str) != 1)
 		return -EINVAL;
 
 	mutex_lock(&drvdata->mutex);
@@ -502,7 +502,7 @@ static ssize_t tpiu_store_set(struct device *dev, struct device_attribute *attr,
 
 	if (strlen(buf) >= 10)
 		return -EINVAL;
-	if (sscanf(buf, "%s", str) != 1)
+	if (sscanf(buf, "%10s", str) != 1)
 		return -EINVAL;
 
 	mutex_lock(&drvdata->mutex);
@@ -815,7 +815,7 @@ static int __devinit tpiu_probe(struct platform_device *pdev)
 	if (ret)
 		return ret;
 
-	/* Disable tpiu to support older targets that need this */
+	
 	__tpiu_disable(drvdata);
 
 	clk_disable_unprepare(drvdata->clk);

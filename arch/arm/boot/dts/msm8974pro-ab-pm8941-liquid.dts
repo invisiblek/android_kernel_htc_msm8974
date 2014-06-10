@@ -20,3 +20,4 @@
 	compatible = "qcom,msm8974-liquid", "qcom,msm8974", "qcom,liquid";
 	qcom,board-id = <9 0>;
 };
+

@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -35,7 +35,8 @@ static int msm_buf_mngr_get_buf(struct msm_buf_mngr_device *buf_mngr_dev,
 	new_entry->vb2_buf = buf_mngr_dev->vb2_ops.get_buf(buf_info->session_id,
 		buf_info->stream_id);
 	if (!new_entry->vb2_buf) {
-		pr_debug("%s:Get buf is null\n", __func__);
+		pr_err("%s:Get buf is null, session_id %d, stream_id %d \n", __func__,
+				buf_info->session_id, buf_info->stream_id); 
 		kfree(new_entry);
 		return -EINVAL;
 	}
@@ -129,7 +130,6 @@ static int msm_generic_buf_mngr_open(struct v4l2_subdev *sd,
 		rc = -ENODEV;
 		return rc;
 	}
-	buf_mngr_dev->msm_buf_mngr_open_cnt++;
 	return rc;
 }
 
@@ -143,9 +143,6 @@ static int msm_generic_buf_mngr_close(struct v4l2_subdev *sd,
 		rc = -ENODEV;
 		return rc;
 	}
-	buf_mngr_dev->msm_buf_mngr_open_cnt--;
-	if (buf_mngr_dev->msm_buf_mngr_open_cnt == 0)
-		msm_buf_mngr_sd_shutdown(buf_mngr_dev);
 	return rc;
 }
 
@@ -214,7 +211,7 @@ static int __init msm_buf_mngr_init(void)
 		pr_err("%s: not enough memory", __func__);
 		return -ENOMEM;
 	}
-	/* Sub-dev */
+	
 	v4l2_subdev_init(&msm_buf_mngr_dev->subdev.sd,
 		&msm_buf_mngr_subdev_ops);
 	snprintf(msm_buf_mngr_dev->subdev.sd.name,

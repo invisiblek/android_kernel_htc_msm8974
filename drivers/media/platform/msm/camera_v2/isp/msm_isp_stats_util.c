@@ -14,7 +14,8 @@
 #include <media/v4l2-subdev.h>
 #include "msm_isp_util.h"
 #include "msm_isp_stats_util.h"
-
+extern int g_subcam_vfe_intf;
+extern int g_subcam_no_ack;
 static int msm_isp_stats_cfg_ping_pong_address(struct vfe_device *vfe_dev,
 	struct msm_vfe_stats_stream *stream_info, uint32_t pingpong_status,
 	struct msm_isp_buffer **done_buf)
@@ -120,6 +121,14 @@ void msm_isp_process_stats_irq(struct vfe_device *vfe_dev,
 			stats_event->stats_buf_idxs[stream_info->stats_type] =
 				done_buf->buf_idx;
 			if (!stream_info->composite_flag) {
+				
+				if (vfe_dev->pdev != NULL) {
+					if (vfe_dev->pdev->id == 0 && ((buf_event.frame_id <= 10) || (buf_event.frame_id % 200 == 0))) {
+						pr_info("%s: stats event frame id: %u, stats_mask: 0x%x\n",
+							__func__, buf_event.frame_id, 1 << stream_info->stats_type);
+					}
+				}
+				
 				stats_event->stats_mask =
 					1 << stream_info->stats_type;
 				ISP_DBG("%s: stats event frame id: 0x%x\n",
@@ -135,6 +144,14 @@ void msm_isp_process_stats_irq(struct vfe_device *vfe_dev,
 	}
 
 	if (comp_stats_type_mask) {
+		
+		if (vfe_dev->pdev != NULL) {
+			if (vfe_dev->pdev->id == 0 && ((buf_event.frame_id <= 10) || (buf_event.frame_id % 200 == 0))) {
+				pr_info("%s: composite stats event frame id: %u, stats_mask: 0x%x\n",
+					__func__, buf_event.frame_id, comp_stats_type_mask);
+			}
+		}
+		
 		ISP_DBG("%s: composite stats event frame id: 0x%x mask: 0x%x\n",
 			__func__, buf_event.frame_id, comp_stats_type_mask);
 		stats_event->stats_mask = comp_stats_type_mask;
@@ -367,6 +384,13 @@ static int msm_isp_stats_wait_for_cfg_done(struct vfe_device *vfe_dev)
 	int rc;
 	init_completion(&vfe_dev->stats_config_complete);
 	atomic_set(&vfe_dev->stats_data.stats_update, 2);
+	if(g_subcam_no_ack == 1 && vfe_dev->pdev->id == g_subcam_vfe_intf)
+	{
+	        rc = wait_for_completion_interruptible_timeout(
+	        &vfe_dev->stats_config_complete,
+	        msecs_to_jiffies(100));
+	}
+	else
 	rc = wait_for_completion_interruptible_timeout(
 		&vfe_dev->stats_config_complete,
 		msecs_to_jiffies(VFE_MAX_CFG_TIMEOUT));

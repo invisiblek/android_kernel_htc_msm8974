@@ -41,6 +41,17 @@
 
 #define ATAG_MSM_PARTITION 0x4d534D70 /* MSMp */
 
+int get_partition_num_by_name(char *name)
+{
+	struct mtd_partition *ptn = msm_nand_partitions;
+	int i;
+
+	for (i = 0; i < MSM_MAX_PARTITIONS && ptn->name; i++, ptn++) {
+		if (strcmp(ptn->name, name) == 0)
+			return ptn->offset;
+	}
+}
+
 struct msm_ptbl_entry {
 	char name[16];
 	__u32 offset;

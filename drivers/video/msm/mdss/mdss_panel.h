@@ -297,6 +297,10 @@ struct mdss_panel_info {
 	bool dynamic_fps;
 	char dfps_update;
 	int new_fps;
+#ifdef CONFIG_MACH_M8
+	int panel_id;
+	int first_power_on;
+#endif
 
 	u32 cont_splash_enabled;
 	u32 partial_update_enabled;

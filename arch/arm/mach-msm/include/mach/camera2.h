@@ -68,6 +68,14 @@ struct v4l2_subdev_info {
 	uint16_t order;
 };
 
+#ifdef CONFIG_MACH_M8
+struct camera_ncp6924_vreg_t {
+	const char *reg_name;
+	int min_voltage;
+	int max_voltage;
+};
+#endif
+
 struct msm_camera_sensor_board_info {
 	const char *sensor_name;
 	struct msm_camera_slave_info *slave_info;
@@ -81,6 +89,11 @@ struct msm_camera_sensor_board_info {
 	struct msm_sensor_info_t *sensor_info;
 	struct msm_sensor_init_params *sensor_init_params;
 	const char *misc_regulator;
+#ifdef CONFIG_MACH_M8
+	uint32_t htc_image;
+	uint32_t pm_ncp6924;
+	struct camera_ncp6924_vreg_t *cam_ncp6924_vreg;
+#endif
 };
 
 enum msm_camera_i2c_cmd_type {
