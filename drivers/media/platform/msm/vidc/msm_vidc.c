@@ -72,7 +72,6 @@ int msm_vidc_poll(void *instance, struct file *filp,
 	return get_poll_flags(inst);
 }
 
-/* Kernel client alternative for msm_vidc_poll */
 int msm_vidc_wait(void *instance)
 {
 	struct msm_vidc_inst *inst = instance;
@@ -381,14 +380,12 @@ static inline enum hal_buffer get_hal_buffer_type(
 	if (inst->session_type == MSM_VIDC_DECODER) {
 		if (b->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE)
 			return HAL_BUFFER_INPUT;
-		else /* V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE */
+		else 
 			return HAL_BUFFER_OUTPUT;
 	} else {
-		/* FIXME in the future.  See comment in msm_comm_get_\
-		 * domain_partition. Same problem here. */
 		if (b->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE)
 			return HAL_BUFFER_OUTPUT;
-		else /* V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE */
+		else 
 			return HAL_BUFFER_INPUT;
 	}
 	return -EINVAL;
@@ -461,14 +458,6 @@ int map_and_register_buf(struct msm_vidc_inst *inst, struct v4l2_buffer *b)
 
 		if (temp && is_dynamic_output_buffer_mode(b, inst) &&
 			(i == 0)) {
-			/*
-			* Buffer is already present in registered list
-			* increment ref_count, populate new values of v4l2
-			* buffer in existing buffer_info struct.
-			*
-			* We will use the saved buffer info and queue it when
-			* we receive RELEASE_BUFFER_REFERENCE EVENT from f/w.
-			*/
 			dprintk(VIDC_DBG, "[MAP] Buffer already prepared\n");
 			rc = buf_ref_get(inst, temp);
 			if (rc > 0) {
@@ -510,7 +499,7 @@ int map_and_register_buf(struct msm_vidc_inst *inst, struct v4l2_buffer *b)
 					b->m.planes[i].m.userptr;
 			}
 		}
-		/* We maintain one ref count for all planes*/
+		
 		if ((i == 0) && is_dynamic_output_buffer_mode(b, inst)) {
 			rc = buf_ref_get(inst, binfo);
 			if (rc < 0)
@@ -547,10 +536,6 @@ int unmap_and_deregister_buf(struct msm_vidc_inst *inst,
 
 	mutex_lock(&inst->lock);
 	list = &inst->registered_bufs;
-	/*
-	* Make sure the buffer to be unmapped and deleted
-	* from the registered list is present in the list.
-	*/
 	list_for_each_entry_safe(temp, dummy, list, list) {
 		if (temp == binfo) {
 			found = true;
@@ -558,12 +543,6 @@ int unmap_and_deregister_buf(struct msm_vidc_inst *inst,
 		}
 	}
 
-	/*
-	* Free the buffer info only if
-	* - buffer info has not been deleted from registered list
-	* - vidc client has called dqbuf on the buffer
-	* - no references are held on the buffer
-	*/
 	if (!found || !temp || !temp->pending_deletion || !temp->dequeued)
 		goto exit;
 
@@ -573,15 +552,6 @@ int unmap_and_deregister_buf(struct msm_vidc_inst *inst,
 			__func__, temp, i, temp->handle[i],
 			temp->device_addr[i], temp->fd[i],
 			temp->buff_off[i], temp->mapped[i]);
-		/*
-		* Unmap the handle only if the buffer has been mapped and no
-		* other buffer has a reference to this buffer.
-		* In case of buffers with same fd, we will map the buffer only
-		* once and subsequent buffers will refer to the mapped buffer's
-		* device address.
-		* For buffers which share the same fd, do not unmap and keep
-		* the buffer info in registered list.
-		*/
 		if (temp->handle[i] && temp->mapped[i] &&
 			!temp->same_fd_ref[i]) {
 			dprintk(VIDC_DBG,
@@ -690,7 +660,7 @@ int msm_vidc_prepare_buf(void *instance, struct v4l2_buffer *b)
 		return -EINVAL;
 	}
 
-	/* Map the buffer only for non-kernel clients*/
+	
 	if (b->m.planes[0].reserved[0]) {
 		inst->map_output_buffer = true;
 		if (map_and_register_buf(inst, b))
@@ -712,12 +682,12 @@ int msm_vidc_release_buffers(void *instance, int buffer_type)
 	struct v4l2_buffer buffer_info;
 	struct v4l2_plane plane[VIDEO_MAX_PLANES];
 	int i, rc = 0;
+	bool release_buf = false;
 
 	if (!inst)
 		return -EINVAL;
 
 	list_for_each_safe(ptr, next, &inst->registered_bufs) {
-		bool release_buf = false;
 		mutex_lock(&inst->lock);
 		bi = list_entry(ptr, struct buffer_info, list);
 		if (bi->type == buffer_type) {
@@ -1036,11 +1006,17 @@ void *msm_vidc_smem_get_client(void *instance)
 {
 	struct msm_vidc_inst *inst = instance;
 
-	if (!inst || !inst->mem_client) {
-		dprintk(VIDC_ERR, "%s: invalid instance or client = %p %p\n",
-				__func__, inst, inst->mem_client);
-		return NULL;
-	}
+        
+        if (!inst) {
+                dprintk(VIDC_ERR, "%s: invalid NULL instance\n", __func__);
+                return NULL;
+        }
+        if (!inst->mem_client) {
+                dprintk(VIDC_ERR, "%s: invalid NULL client (instance: %p)\n",
+                                __func__, inst);
+                return NULL;
+        }
+        
 
 	return inst->mem_client;
 }
@@ -1088,8 +1064,6 @@ static int setup_event_queue(void *inst,
 {
 	int rc = 0;
 	struct msm_vidc_inst *vidc_inst = (struct msm_vidc_inst *)inst;
-	spin_lock_init(&pvdev->fh_lock);
-	INIT_LIST_HEAD(&pvdev->fh_list);
 
 	v4l2_fh_init(&vidc_inst->event_handler, pvdev);
 	v4l2_fh_add(&vidc_inst->event_handler);
@@ -1313,7 +1287,7 @@ int msm_vidc_close(void *instance)
 
 	if (!inst)
 		return -EINVAL;
-
+	v4l2_fh_del(&inst->event_handler);
 	list_for_each_safe(ptr, next, &inst->registered_bufs) {
 		bi = list_entry(ptr, struct buffer_info, list);
 		if (bi->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
@@ -1341,6 +1315,9 @@ int msm_vidc_close(void *instance)
 	else if (inst->session_type == MSM_VIDC_ENCODER)
 		msm_venc_ctrl_deinit(inst);
 
+	for (i = 0; i < MAX_PORT_NUM; i++)
+		vb2_queue_release(&inst->bufq[i].vb2_bufq);
+
 	cleanup_instance(inst);
 	if (inst->state != MSM_VIDC_CORE_INVALID &&
 		core->state != VIDC_CORE_INVALID)
@@ -1350,8 +1327,6 @@ int msm_vidc_close(void *instance)
 	if (rc)
 		dprintk(VIDC_ERR,
 			"Failed to move video instance to uninit state\n");
-	for (i = 0; i < MAX_PORT_NUM; i++)
-		vb2_queue_release(&inst->bufq[i].vb2_bufq);
 
 	pr_info(VIDC_DBG_TAG "Closed video instance: %p\n", VIDC_INFO, inst);
 	kfree(inst);

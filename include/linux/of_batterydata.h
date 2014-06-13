@@ -35,6 +35,9 @@
 int of_batterydata_read_data(struct device_node *container_node,
 				struct bms_battery_data *batt_data,
 				int batt_id_uv);
+int of_batterydata_read_data_by_id_result(struct device_node *container_node,
+				struct bms_battery_data *batt_data,
+				int id_result);
 #else
 static inline int of_batterydata_read_data(struct device_node *container_node,
 				struct bms_battery_data *batt_data,
@@ -42,4 +45,10 @@ static inline int of_batterydata_read_data(struct device_node *container_node,
 {
 	return -ENXIO;
 }
-#endif /* CONFIG_OF_QPNP */
+static inline int of_batterydata_read_data_by_id_result(struct device_node *container_node,
+				struct bms_battery_data *batt_data,
+				int id_result);
+{
+	return -ENXIO;
+}
+#endif 

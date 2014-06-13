@@ -22,16 +22,14 @@
 
 #include <asm/cputype.h>
 #include <asm/mach-types.h>
-/*
- * SOC version type with major number in the upper 16 bits and minor
- * number in the lower 16 bits.  For example:
- *   1.0 -> 0x00010000
- *   2.3 -> 0x00020003
- */
 #define SOCINFO_VERSION_MAJOR(ver) ((ver & 0xffff0000) >> 16)
 #define SOCINFO_VERSION_MINOR(ver) (ver & 0x0000ffff)
 
 #ifdef CONFIG_OF
+#define of_machine_pid()	of_machine_projectid(0)
+#define of_machine_pcbid()	of_machine_projectid(1)
+#define of_machine_socver() 	of_machine_projectid(2)
+
 #define of_board_is_cdp()	of_machine_is_compatible("qcom,cdp")
 #define of_board_is_sim()	of_machine_is_compatible("qcom,sim")
 #define of_board_is_rumi()	of_machine_is_compatible("qcom,rumi")
@@ -39,6 +37,8 @@
 #define of_board_is_liquid()	of_machine_is_compatible("qcom,liquid")
 #define of_board_is_dragonboard()	\
 	of_machine_is_compatible("qcom,dragonboard")
+#define of_board_is_m8()	of_machine_is_compatible("htc,m8")
+
 #define of_board_is_cdp()	of_machine_is_compatible("qcom,cdp")
 #define of_board_is_mtp()	of_machine_is_compatible("qcom,mtp")
 #define of_board_is_qrd()	of_machine_is_compatible("qcom,qrd")
@@ -386,7 +386,6 @@ static inline int cpu_is_msm8930ab(void)
 
 static inline int cpu_is_msm8627(void)
 {
-/* 8930 and 8627 will share the same CONFIG_ARCH type unless otherwise needed */
 #ifdef CONFIG_ARCH_MSM8930
 	return read_msm_cpu_type() == MSM_CPU_8627;
 #else
@@ -493,7 +492,7 @@ static inline int cpu_is_mpq8092(void)
 
 static inline int cpu_is_msm8226(void)
 {
-#ifdef CONFIG_ARCH_MSM8226
+#ifdef CONFIG_ARCH_DUMMY
 	enum msm_cpu cpu = socinfo_get_msm_cpu();
 
 	BUG_ON(cpu == MSM_CPU_UNKNOWN);

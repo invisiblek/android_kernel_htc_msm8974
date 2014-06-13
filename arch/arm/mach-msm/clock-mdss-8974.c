@@ -46,7 +46,6 @@
 #define HDMI_PHY_PLL_PHYS	0xFD922700
 #define HDMI_PHY_PLL_SIZE	0x000000D4
 
-/* hdmi phy registers */
 #define HDMI_PHY_ANA_CFG0               (0x0000)
 #define HDMI_PHY_ANA_CFG1               (0x0004)
 #define HDMI_PHY_ANA_CFG2               (0x0008)
@@ -68,7 +67,6 @@
 #define HDMI_PHY_BIST_PATN3             (0x0048)
 #define HDMI_PHY_STATUS                 (0x005C)
 
-/* hdmi phy unified pll registers */
 #define HDMI_UNI_PLL_REFCLK_CFG         (0x0000)
 #define HDMI_UNI_PLL_POSTDIV1_CFG       (0x0004)
 #define HDMI_UNI_PLL_CHFPUMP_CFG        (0x0008)
@@ -171,15 +169,10 @@ static int mdss_gdsc_enabled(void)
 		(!(readl_relaxed(gdsc_base) & BIT(0)));
 }
 
-/* Auto PLL calibaration */
 static int mdss_ahb_clk_enable(int enable)
 {
 	int rc = 0;
 
-	/* todo: Ideally, we should enable/disable GDSC whenever we are
-	 * attempting to enable/disable MDSS AHB clock.
-	 * For now, just return error if  GDSC is not enabled.
-	 */
 	if (!mdss_gdsc_enabled()) {
 		pr_err("%s: mdss GDSC is not enabled\n", __func__);
 		return -EPERM;
@@ -216,7 +209,7 @@ static void hdmi_vco_disable(struct clk *c)
 	clk_disable(mdss_ahb_clk);
 
 	hdmi_pll_on = 0;
-} /* hdmi_vco_disable */
+} 
 
 static int hdmi_vco_enable(struct clk *c)
 {
@@ -236,24 +229,24 @@ static int hdmi_vco_enable(struct clk *c)
 		return rc;
 	}
 
-	/* Global Enable */
+	
 	REG_W(0x81, hdmi_phy_base + HDMI_PHY_GLB_CFG);
-	/* Power up power gen */
+	
 	REG_W(0x00, hdmi_phy_base + HDMI_PHY_PD_CTRL0);
 	udelay(350);
 
-	/* PLL Power-Up */
+	
 	REG_W(0x01, hdmi_phy_pll_base + HDMI_UNI_PLL_GLB_CFG);
 	udelay(5);
-	/* Power up PLL LDO */
+	
 	REG_W(0x03, hdmi_phy_pll_base + HDMI_UNI_PLL_GLB_CFG);
 	udelay(350);
 
-	/* PLL Power-Up */
+	
 	REG_W(0x0F, hdmi_phy_pll_base + HDMI_UNI_PLL_GLB_CFG);
 	udelay(350);
 
-	/* poll for PLL ready status */
+	
 	max_reads = 20;
 	timeout_us = 100;
 	if (readl_poll_timeout_noirq((hdmi_phy_pll_base + HDMI_UNI_PLL_STATUS),
@@ -267,7 +260,7 @@ static int hdmi_vco_enable(struct clk *c)
 	pr_debug("%s: hdmi phy pll is locked\n", __func__);
 
 	udelay(350);
-	/* poll for PHY ready status */
+	
 	max_reads = 20;
 	timeout_us = 100;
 	if (readl_poll_timeout_noirq((hdmi_phy_base + HDMI_PHY_STATUS),
@@ -284,7 +277,7 @@ static int hdmi_vco_enable(struct clk *c)
 	hdmi_pll_on = 1;
 
 	return 0;
-} /* hdmi_vco_enable */
+} 
 
 static inline struct hdmi_pll_vco_clk *to_hdmi_vco_clk(struct clk *clk)
 {
@@ -423,7 +416,7 @@ static void hdmi_phy_pll_calculator(u32 vco_freq)
 	val = vco_freq >> 8;
 	pr_debug("%s: HDMI_UNI_PLL_CAL_CFG11 = 0x%x\n", __func__, val);
 	REG_W(val, hdmi_phy_pll_base + HDMI_UNI_PLL_CAL_CFG11);
-} /* hdmi_phy_pll_calculator */
+} 
 
 static int hdmi_vco_set_rate(struct clk *c, unsigned long rate)
 {
@@ -451,7 +444,7 @@ static int hdmi_vco_set_rate(struct clk *c, unsigned long rate)
 		break;
 
 	case 756000000:
-		/* 640x480p60 */
+		
 		REG_W(0x81, hdmi_phy_base + HDMI_PHY_GLB_CFG);
 		REG_W(0x01, hdmi_phy_pll_base + HDMI_UNI_PLL_GLB_CFG);
 		REG_W(0x01, hdmi_phy_pll_base + HDMI_UNI_PLL_REFCLK_CFG);
@@ -495,7 +488,7 @@ static int hdmi_vco_set_rate(struct clk *c, unsigned long rate)
 	break;
 
 	case 810000000:
-		/* 576p50/576i50 case */
+		
 		REG_W(0x81, hdmi_phy_base + HDMI_PHY_GLB_CFG);
 		REG_W(0x01, hdmi_phy_pll_base + HDMI_UNI_PLL_GLB_CFG);
 		REG_W(0x01, hdmi_phy_pll_base + HDMI_UNI_PLL_REFCLK_CFG);
@@ -539,7 +532,7 @@ static int hdmi_vco_set_rate(struct clk *c, unsigned long rate)
 	break;
 
 	case 810900000:
-		/* 480p60/480i60 case */
+		
 		REG_W(0x81, hdmi_phy_base + HDMI_PHY_GLB_CFG);
 		REG_W(0x01, hdmi_phy_pll_base + HDMI_UNI_PLL_GLB_CFG);
 		REG_W(0x01, hdmi_phy_pll_base + HDMI_UNI_PLL_REFCLK_CFG);
@@ -624,10 +617,6 @@ static int hdmi_vco_set_rate(struct clk *c, unsigned long rate)
 		udelay(200);
 	break;
 	case 742500000:
-		/*
-		 * 720p60/720p50/1080i60/1080i50
-		 * 1080p24/1080p30/1080p25 case
-		 */
 		REG_W(0x81, hdmi_phy_base + HDMI_PHY_GLB_CFG);
 		REG_W(0x01, hdmi_phy_pll_base + HDMI_UNI_PLL_GLB_CFG);
 		REG_W(0x01, hdmi_phy_pll_base + HDMI_UNI_PLL_REFCLK_CFG);
@@ -848,7 +837,7 @@ static int hdmi_vco_set_rate(struct clk *c, unsigned long rate)
 		REG_W(0x00, hdmi_phy_base + HDMI_PHY_BIST_CFG0);
 	}
 
-	/* Make sure writes complete before disabling iface clock */
+	
 	mb();
 
 	mdss_ahb_clk_enable(0);
@@ -860,7 +849,7 @@ static int hdmi_vco_set_rate(struct clk *c, unsigned long rate)
 	vco->rate_set = true;
 
 	return 0;
-} /* hdmi_pll_set_rate */
+} 
 
 int set_byte_mux_sel(struct mux_clk *clk, int sel)
 {
@@ -894,15 +883,10 @@ static inline struct dsi_pll_vco_clk *to_vco_clk(struct clk *clk)
 	return container_of(clk, struct dsi_pll_vco_clk, c);
 }
 
-/*
- * When the display is turned off, the display registers are wiped out.
- * Temporarily use the prepare ops to restore the register values.
- *
-*/
 int div_prepare(struct clk *c)
 {
 	struct div_clk *div = to_div_clk(c);
-	/* Restore the divider's value */
+	
 	return div->ops->set_div(div, div->data.div);
 }
 
@@ -929,7 +913,7 @@ int mux_prepare(struct clk *c)
 		goto error;
 	}
 
-	/* Restore the mux source select value */
+	
 	rc = mux->ops->set_mux_sel(mux, sel);
 
 error:
@@ -1034,12 +1018,12 @@ static int analog_get_div(struct div_clk *clk)
 static void dsi_pll_toggle_lock_detect(void)
 {
 	DSS_REG_W(mdss_dsi_base, DSI_0_PHY_PLL_UNIPHY_PLL_LKDET_CFG2,
-		0x05);
+		0x0d);
 	DSS_REG_W(mdss_dsi_base, DSI_0_PHY_PLL_UNIPHY_PLL_LKDET_CFG2,
-		0x04);
+		0x0c);
 	udelay(1);
 	DSS_REG_W(mdss_dsi_base, DSI_0_PHY_PLL_UNIPHY_PLL_LKDET_CFG2,
-		0x05);
+		0x0d);
 }
 
 static int dsi_pll_lock_status(void)
@@ -1047,7 +1031,7 @@ static int dsi_pll_lock_status(void)
 	u32 status;
 	int pll_locked = 0;
 
-	/* poll for PLL ready status */
+	
 	if (readl_poll_timeout_noirq((mdss_dsi_base +
 			DSI_0_PHY_PLL_UNIPHY_PLL_STATUS),
 			status,
@@ -1071,10 +1055,6 @@ static inline int dsi_pll_toggle_lock_detect_and_check_status(void)
 
 static void dsi_pll_software_reset(void)
 {
-	/*
-	 * Add HW recommended delays after toggling the software
-	 * reset bit off and back on.
-	 */
 	DSS_REG_W(mdss_dsi_base, DSI_0_PHY_PLL_UNIPHY_PLL_TEST_CFG, 0x01);
 	udelay(1000);
 	DSS_REG_W(mdss_dsi_base, DSI_0_PHY_PLL_UNIPHY_PLL_TEST_CFG, 0x00);
@@ -1088,29 +1068,22 @@ static int dsi_pll_enable_seq_m(void)
 
 	dsi_pll_software_reset();
 
-	/*
-	 * Add hardware recommended delays between register writes for
-	 * the updates to take effect. These delays are necessary for the
-	 * PLL to successfully lock
-	 */
+	DSS_REG_W(mdss_dsi_base, DSI_0_PHY_PLL_UNIPHY_PLL_CAL_CFG1, 0x34);
 	DSS_REG_W(mdss_dsi_base, DSI_0_PHY_PLL_UNIPHY_PLL_GLB_CFG, 0x01);
 	udelay(200);
 	DSS_REG_W(mdss_dsi_base, DSI_0_PHY_PLL_UNIPHY_PLL_GLB_CFG, 0x05);
 	udelay(200);
 	DSS_REG_W(mdss_dsi_base, DSI_0_PHY_PLL_UNIPHY_PLL_GLB_CFG, 0x0f);
-	udelay(1000);
+	udelay(600);
 
 	pll_locked = dsi_pll_toggle_lock_detect_and_check_status();
 	for (i = 0; (i < 4) && !pll_locked; i++) {
 		DSS_REG_W(mdss_dsi_base,
-			DSI_0_PHY_PLL_UNIPHY_PLL_GLB_CFG, 0x07);
-		if (i != 0)
-			DSS_REG_W(mdss_dsi_base,
-				DSI_0_PHY_PLL_UNIPHY_PLL_CAL_CFG1, 0x34);
-		udelay(1);
+			DSI_0_PHY_PLL_UNIPHY_PLL_GLB_CFG, 0x05);
+		udelay(100);
 		DSS_REG_W(mdss_dsi_base,
 			DSI_0_PHY_PLL_UNIPHY_PLL_GLB_CFG, 0x0f);
-		udelay(1000);
+		udelay(600);
 		pll_locked = dsi_pll_toggle_lock_detect_and_check_status();
 	}
 
@@ -1129,11 +1102,6 @@ static int dsi_pll_enable_seq_d(void)
 
 	dsi_pll_software_reset();
 
-	/*
-	 * Add hardware recommended delays between register writes for
-	 * the updates to take effect. These delays are necessary for the
-	 * PLL to successfully lock
-	 */
 	DSS_REG_W(mdss_dsi_base, DSI_0_PHY_PLL_UNIPHY_PLL_GLB_CFG, 0x01);
 	udelay(200);
 	DSS_REG_W(mdss_dsi_base, DSI_0_PHY_PLL_UNIPHY_PLL_GLB_CFG, 0x05);
@@ -1145,7 +1113,7 @@ static int dsi_pll_enable_seq_d(void)
 	DSS_REG_W(mdss_dsi_base, DSI_0_PHY_PLL_UNIPHY_PLL_GLB_CFG, 0x07);
 	udelay(200);
 	DSS_REG_W(mdss_dsi_base, DSI_0_PHY_PLL_UNIPHY_PLL_GLB_CFG, 0x0f);
-	udelay(1000);
+	udelay(600);
 
 	pll_locked = dsi_pll_toggle_lock_detect_and_check_status();
 	pr_debug("%s: PLL status = %s\n", __func__,
@@ -1160,11 +1128,6 @@ static int dsi_pll_enable_seq_f1(void)
 
 	dsi_pll_software_reset();
 
-	/*
-	 * Add hardware recommended delays between register writes for
-	 * the updates to take effect. These delays are necessary for the
-	 * PLL to successfully lock
-	 */
 	DSS_REG_W(mdss_dsi_base, DSI_0_PHY_PLL_UNIPHY_PLL_GLB_CFG, 0x01);
 	udelay(200);
 	DSS_REG_W(mdss_dsi_base, DSI_0_PHY_PLL_UNIPHY_PLL_GLB_CFG, 0x05);
@@ -1174,7 +1137,7 @@ static int dsi_pll_enable_seq_f1(void)
 	DSS_REG_W(mdss_dsi_base, DSI_0_PHY_PLL_UNIPHY_PLL_GLB_CFG, 0x0d);
 	udelay(200);
 	DSS_REG_W(mdss_dsi_base, DSI_0_PHY_PLL_UNIPHY_PLL_GLB_CFG, 0x0f);
-	udelay(1000);
+	udelay(600);
 
 	pll_locked = dsi_pll_toggle_lock_detect_and_check_status();
 	pr_debug("%s: PLL status = %s\n", __func__,
@@ -1189,17 +1152,12 @@ static int dsi_pll_enable_seq_c(void)
 
 	dsi_pll_software_reset();
 
-	/*
-	 * Add hardware recommended delays between register writes for
-	 * the updates to take effect. These delays are necessary for the
-	 * PLL to successfully lock
-	 */
 	DSS_REG_W(mdss_dsi_base, DSI_0_PHY_PLL_UNIPHY_PLL_GLB_CFG, 0x01);
 	udelay(200);
 	DSS_REG_W(mdss_dsi_base, DSI_0_PHY_PLL_UNIPHY_PLL_GLB_CFG, 0x05);
 	udelay(200);
 	DSS_REG_W(mdss_dsi_base, DSI_0_PHY_PLL_UNIPHY_PLL_GLB_CFG, 0x0f);
-	udelay(1000);
+	udelay(600);
 
 	pll_locked = dsi_pll_toggle_lock_detect_and_check_status();
 	pr_debug("%s: PLL status = %s\n", __func__,
@@ -1214,11 +1172,6 @@ static int dsi_pll_enable_seq_e(void)
 
 	dsi_pll_software_reset();
 
-	/*
-	 * Add hardware recommended delays between register writes for
-	 * the updates to take effect. These delays are necessary for the
-	 * PLL to successfully lock
-	 */
 	DSS_REG_W(mdss_dsi_base, DSI_0_PHY_PLL_UNIPHY_PLL_GLB_CFG, 0x01);
 	udelay(200);
 	DSS_REG_W(mdss_dsi_base, DSI_0_PHY_PLL_UNIPHY_PLL_GLB_CFG, 0x05);
@@ -1226,7 +1179,7 @@ static int dsi_pll_enable_seq_e(void)
 	DSS_REG_W(mdss_dsi_base, DSI_0_PHY_PLL_UNIPHY_PLL_GLB_CFG, 0x0d);
 	udelay(1);
 	DSS_REG_W(mdss_dsi_base, DSI_0_PHY_PLL_UNIPHY_PLL_GLB_CFG, 0x0f);
-	udelay(1000);
+	udelay(600);
 
 	pll_locked = dsi_pll_toggle_lock_detect_and_check_status();
 	pr_debug("%s: PLL status = %s\n", __func__,
@@ -1242,10 +1195,6 @@ static int dsi_pll_enable_seq_8974(void)
 
 	dsi_pll_software_reset();
 
-	/*
-	 * PLL power up sequence.
-	 * Add necessary delays recommeded by hardware.
-	 */
 	DSS_REG_W(mdss_dsi_base, DSI_0_PHY_PLL_UNIPHY_PLL_GLB_CFG, 0x01);
 	udelay(1000);
 	DSS_REG_W(mdss_dsi_base, DSI_0_PHY_PLL_UNIPHY_PLL_GLB_CFG, 0x05);
@@ -1256,14 +1205,14 @@ static int dsi_pll_enable_seq_8974(void)
 	udelay(1000);
 
 	for (i = 0; i < 3; i++) {
-		/* DSI Uniphy lock detect setting */
+		
 		DSS_REG_W(mdss_dsi_base, DSI_0_PHY_PLL_UNIPHY_PLL_LKDET_CFG2,
-			0x04);
+			0x0c);
 		udelay(100);
 		DSS_REG_W(mdss_dsi_base, DSI_0_PHY_PLL_UNIPHY_PLL_LKDET_CFG2,
-			0x05);
+			0x0d);
 		udelay(500);
-		/* poll for PLL ready status */
+		
 		max_reads = 5;
 		timeout_us = 100;
 		if (readl_poll_timeout_noirq((mdss_dsi_base +
@@ -1280,10 +1229,6 @@ static int dsi_pll_enable_seq_8974(void)
 		}
 
 		dsi_pll_software_reset();
-		/*
-		 * PLL power up sequence.
-		 * Add necessary delays recommeded by hardware.
-		 */
 		DSS_REG_W(mdss_dsi_base, DSI_0_PHY_PLL_UNIPHY_PLL_GLB_CFG, 0x1);
 		udelay(1000);
 		DSS_REG_W(mdss_dsi_base, DSI_0_PHY_PLL_UNIPHY_PLL_GLB_CFG, 0x5);
@@ -1329,7 +1274,7 @@ static int dsi_pll_enable(struct clk *c)
 		return rc;
 	}
 
-	/* Try all enable sequences until one succeeds */
+	
 	for (i = 0; i < vco->pll_en_seq_cnt; i++) {
 		rc = vco->pll_enable_seqs[i]();
 		pr_debug("%s: DSI PLL %s after sequence #%d\n", __func__,
@@ -1388,7 +1333,7 @@ static int vco_set_rate(struct clk *c, unsigned long rate)
 		return rc;
 	}
 
-	/* Configure the Loop filter resistance */
+	
 	for (i = 0; i < vco->lpfr_lut_size; i++)
 		if (vco_clk_rate <= vco->lpfr_lut[i].vco_rate)
 			break;
@@ -1401,7 +1346,7 @@ static int vco_set_rate(struct clk *c, unsigned long rate)
 	res = vco->lpfr_lut[i].r;
 	DSS_REG_W(mdss_dsi_base, DSI_0_PHY_PLL_UNIPHY_PLL_LPFR_CFG, res);
 
-	/* Loop filter capacitance values : c1 and c2 */
+	
 	DSS_REG_W(mdss_dsi_base, DSI_0_PHY_PLL_UNIPHY_PLL_LPFC1_CFG, 0x70);
 	DSS_REG_W(mdss_dsi_base, DSI_0_PHY_PLL_UNIPHY_PLL_LPFC2_CFG, 0x15);
 
@@ -1459,7 +1404,7 @@ static int vco_set_rate(struct clk *c, unsigned long rate)
 	DSS_REG_W(mdss_dsi_base, DSI_0_PHY_PLL_UNIPHY_PLL_CHGPUMP_CFG, 0x02);
 	DSS_REG_W(mdss_dsi_base, DSI_0_PHY_PLL_UNIPHY_PLL_CAL_CFG3, 0x2b);
 	DSS_REG_W(mdss_dsi_base, DSI_0_PHY_PLL_UNIPHY_PLL_CAL_CFG4, 0x66);
-	DSS_REG_W(mdss_dsi_base, DSI_0_PHY_PLL_UNIPHY_PLL_LKDET_CFG2, 0x05);
+	DSS_REG_W(mdss_dsi_base, DSI_0_PHY_PLL_UNIPHY_PLL_LKDET_CFG2, 0x0d);
 
 	DSS_REG_W(mdss_dsi_base, DSI_0_PHY_PLL_UNIPHY_PLL_SDM_CFG1,
 		(u32)(sdm_cfg1 & 0xff));
@@ -1469,7 +1414,7 @@ static int vco_set_rate(struct clk *c, unsigned long rate)
 		(u32)(sdm_cfg3 & 0xff));
 	DSS_REG_W(mdss_dsi_base, DSI_0_PHY_PLL_UNIPHY_PLL_SDM_CFG4, 0x00);
 
-	/* Add hardware recommended delay for correct PLL configuration */
+	
 	udelay(1000);
 
 	DSS_REG_W(mdss_dsi_base, DSI_0_PHY_PLL_UNIPHY_PLL_REFCLK_CFG,
@@ -1478,7 +1423,7 @@ static int vco_set_rate(struct clk *c, unsigned long rate)
 	DSS_REG_W(mdss_dsi_base, DSI_0_PHY_PLL_UNIPHY_PLL_VCOLPF_CFG, 0x71);
 	DSS_REG_W(mdss_dsi_base, DSI_0_PHY_PLL_UNIPHY_PLL_SDM_CFG0,
 		(u32)sdm_cfg0);
-	DSS_REG_W(mdss_dsi_base, DSI_0_PHY_PLL_UNIPHY_PLL_CAL_CFG0, 0x0a);
+	DSS_REG_W(mdss_dsi_base, DSI_0_PHY_PLL_UNIPHY_PLL_CAL_CFG0, 0x12);
 	DSS_REG_W(mdss_dsi_base, DSI_0_PHY_PLL_UNIPHY_PLL_CAL_CFG6, 0x30);
 	DSS_REG_W(mdss_dsi_base, DSI_0_PHY_PLL_UNIPHY_PLL_CAL_CFG7, 0x00);
 	DSS_REG_W(mdss_dsi_base, DSI_0_PHY_PLL_UNIPHY_PLL_CAL_CFG8, 0x60);
@@ -1494,7 +1439,6 @@ error:
 	return rc;
 }
 
-/* rate is the bit clk rate */
 static long vco_round_rate(struct clk *c, unsigned long rate)
 {
 	unsigned long rrate = rate;
@@ -1516,20 +1460,20 @@ static unsigned long vco_get_rate(struct clk *c)
 	struct dsi_pll_vco_clk *vco = to_vco_clk(c);
 	u64 ref_clk = vco->ref_clk_rate;
 
-	/* Check to see if the ref clk doubler is enabled */
+	
 	doubler = DSS_REG_R(mdss_dsi_base, DSI_0_PHY_PLL_UNIPHY_PLL_REFCLK_CFG)
 		& BIT(0);
 	ref_clk += (doubler * vco->ref_clk_rate);
 
-	/* see if it is integer mode or sdm mode */
+	
 	sdm0 = DSS_REG_R(mdss_dsi_base, DSI_0_PHY_PLL_UNIPHY_PLL_SDM_CFG0);
 	if (sdm0 & BIT(6)) {
-		/* integer mode */
+		
 		sdm_byp_div = (DSS_REG_R(mdss_dsi_base,
 			DSI_0_PHY_PLL_UNIPHY_PLL_SDM_CFG0) & 0x3f) + 1;
 		vco_rate = ref_clk * sdm_byp_div;
 	} else {
-		/* sdm mode */
+		
 		sdm_dc_off = DSS_REG_R(mdss_dsi_base,
 			DSI_0_PHY_PLL_UNIPHY_PLL_SDM_CFG1) & 0xFF;
 		pr_debug("%s: sdm_dc_off = %d\n", __func__, sdm_dc_off);
@@ -1596,7 +1540,6 @@ static void vco_unprepare(struct clk *c)
 	dsi_pll_disable(c);
 }
 
-/* Op structures */
 
 static struct clk_ops clk_ops_dsi_vco = {
 	.set_rate = vco_set_rate,
@@ -1634,19 +1577,19 @@ static struct clk_ops pixel_clk_src_ops;
 static struct clk_ops byte_clk_src_ops;
 static struct clk_ops analog_potsdiv_clk_ops;
 
-/* Display clocks */
 
 struct dsi_pll_vco_clk dsi_vco_clk_8226 = {
 	.ref_clk_rate = 19200000,
 	.min_rate = 350000000,
 	.max_rate = 750000000,
-	.pll_en_seq_cnt = 6,
+	.pll_en_seq_cnt = 7,
 	.pll_enable_seqs[0] = dsi_pll_enable_seq_m,
-	.pll_enable_seqs[1] = dsi_pll_enable_seq_d,
+	.pll_enable_seqs[1] = dsi_pll_enable_seq_m,
 	.pll_enable_seqs[2] = dsi_pll_enable_seq_d,
-	.pll_enable_seqs[3] = dsi_pll_enable_seq_f1,
-	.pll_enable_seqs[4] = dsi_pll_enable_seq_c,
-	.pll_enable_seqs[5] = dsi_pll_enable_seq_e,
+	.pll_enable_seqs[3] = dsi_pll_enable_seq_d,
+	.pll_enable_seqs[4] = dsi_pll_enable_seq_f1,
+	.pll_enable_seqs[5] = dsi_pll_enable_seq_c,
+	.pll_enable_seqs[6] = dsi_pll_enable_seq_e,
 	.lpfr_lut_size = 10,
 	.lpfr_lut = (struct lpfr_cfg[]){
 		{479500000, 8},
@@ -1865,98 +1808,98 @@ static int edp_vco_set_rate(struct clk *c, unsigned long vco_rate)
 	}
 	if (vco_rate == 810000000) {
 		DSS_REG_W(mdss_edp_base, 0x0c, 0x18);
-		/* UNIPHY_PLL_LKDET_CFG2 */
+		
 		DSS_REG_W(mdss_edp_base, 0x64, 0x05);
-		/* UNIPHY_PLL_REFCLK_CFG */
+		
 		DSS_REG_W(mdss_edp_base, 0x00, 0x00);
-		/* UNIPHY_PLL_SDM_CFG0 */
+		
 		DSS_REG_W(mdss_edp_base, 0x38, 0x36);
-		/* UNIPHY_PLL_SDM_CFG1 */
+		
 		DSS_REG_W(mdss_edp_base, 0x3c, 0x69);
-		/* UNIPHY_PLL_SDM_CFG2 */
+		
 		DSS_REG_W(mdss_edp_base, 0x40, 0xff);
-		/* UNIPHY_PLL_SDM_CFG3 */
+		
 		DSS_REG_W(mdss_edp_base, 0x44, 0x2f);
-		/* UNIPHY_PLL_SDM_CFG4 */
+		
 		DSS_REG_W(mdss_edp_base, 0x48, 0x00);
-		/* UNIPHY_PLL_SSC_CFG0 */
+		
 		DSS_REG_W(mdss_edp_base, 0x4c, 0x80);
-		/* UNIPHY_PLL_SSC_CFG1 */
+		
 		DSS_REG_W(mdss_edp_base, 0x50, 0x00);
-		/* UNIPHY_PLL_SSC_CFG2 */
+		
 		DSS_REG_W(mdss_edp_base, 0x54, 0x00);
-		/* UNIPHY_PLL_SSC_CFG3 */
+		
 		DSS_REG_W(mdss_edp_base, 0x58, 0x00);
-		/* UNIPHY_PLL_CAL_CFG0 */
+		
 		DSS_REG_W(mdss_edp_base, 0x6c, 0x0a);
-		/* UNIPHY_PLL_CAL_CFG2 */
+		
 		DSS_REG_W(mdss_edp_base, 0x74, 0x01);
-		/* UNIPHY_PLL_CAL_CFG6 */
+		
 		DSS_REG_W(mdss_edp_base, 0x84, 0x5a);
-		/* UNIPHY_PLL_CAL_CFG7 */
+		
 		DSS_REG_W(mdss_edp_base, 0x88, 0x0);
-		/* UNIPHY_PLL_CAL_CFG8 */
+		
 		DSS_REG_W(mdss_edp_base, 0x8c, 0x60);
-		/* UNIPHY_PLL_CAL_CFG9 */
+		
 		DSS_REG_W(mdss_edp_base, 0x90, 0x0);
-		/* UNIPHY_PLL_CAL_CFG10 */
+		
 		DSS_REG_W(mdss_edp_base, 0x94, 0x2a);
-		/* UNIPHY_PLL_CAL_CFG11 */
+		
 		DSS_REG_W(mdss_edp_base, 0x98, 0x3);
-		/* UNIPHY_PLL_LKDET_CFG0 */
+		
 		DSS_REG_W(mdss_edp_base, 0x5c, 0x10);
-		/* UNIPHY_PLL_LKDET_CFG1 */
+		
 		DSS_REG_W(mdss_edp_base, 0x60, 0x1a);
-		/* UNIPHY_PLL_POSTDIV1_CFG */
+		
 		DSS_REG_W(mdss_edp_base, 0x04, 0x00);
-		/* UNIPHY_PLL_POSTDIV3_CFG */
+		
 		DSS_REG_W(mdss_edp_base, 0x28, 0x00);
 	} else if (vco_rate == 1350000000) {
-		/* UNIPHY_PLL_LKDET_CFG2 */
+		
 		DSS_REG_W(mdss_edp_base, 0x64, 0x05);
-		/* UNIPHY_PLL_REFCLK_CFG */
+		
 		DSS_REG_W(mdss_edp_base, 0x00, 0x01);
-		/* UNIPHY_PLL_SDM_CFG0 */
+		
 		DSS_REG_W(mdss_edp_base, 0x38, 0x36);
-		/* UNIPHY_PLL_SDM_CFG1 */
+		
 		DSS_REG_W(mdss_edp_base, 0x3c, 0x62);
-		/* UNIPHY_PLL_SDM_CFG2 */
+		
 		DSS_REG_W(mdss_edp_base, 0x40, 0x00);
-		/* UNIPHY_PLL_SDM_CFG3 */
+		
 		DSS_REG_W(mdss_edp_base, 0x44, 0x28);
-		/* UNIPHY_PLL_SDM_CFG4 */
+		
 		DSS_REG_W(mdss_edp_base, 0x48, 0x00);
-		/* UNIPHY_PLL_SSC_CFG0 */
+		
 		DSS_REG_W(mdss_edp_base, 0x4c, 0x80);
-		/* UNIPHY_PLL_SSC_CFG1 */
+		
 		DSS_REG_W(mdss_edp_base, 0x50, 0x00);
-		/* UNIPHY_PLL_SSC_CFG2 */
+		
 		DSS_REG_W(mdss_edp_base, 0x54, 0x00);
-		/* UNIPHY_PLL_SSC_CFG3 */
+		
 		DSS_REG_W(mdss_edp_base, 0x58, 0x00);
-		/* UNIPHY_PLL_CAL_CFG0 */
+		
 		DSS_REG_W(mdss_edp_base, 0x6c, 0x0a);
-		/* UNIPHY_PLL_CAL_CFG2 */
+		
 		DSS_REG_W(mdss_edp_base, 0x74, 0x01);
-		/* UNIPHY_PLL_CAL_CFG6 */
+		
 		DSS_REG_W(mdss_edp_base, 0x84, 0x5a);
-		/* UNIPHY_PLL_CAL_CFG7 */
+		
 		DSS_REG_W(mdss_edp_base, 0x88, 0x0);
-		/* UNIPHY_PLL_CAL_CFG8 */
+		
 		DSS_REG_W(mdss_edp_base, 0x8c, 0x60);
-		/* UNIPHY_PLL_CAL_CFG9 */
+		
 		DSS_REG_W(mdss_edp_base, 0x90, 0x0);
-		/* UNIPHY_PLL_CAL_CFG10 */
+		
 		DSS_REG_W(mdss_edp_base, 0x94, 0x46);
-		/* UNIPHY_PLL_CAL_CFG11 */
+		
 		DSS_REG_W(mdss_edp_base, 0x98, 0x5);
-		/* UNIPHY_PLL_LKDET_CFG0 */
+		
 		DSS_REG_W(mdss_edp_base, 0x5c, 0x10);
-		/* UNIPHY_PLL_LKDET_CFG1 */
+		
 		DSS_REG_W(mdss_edp_base, 0x60, 0x1a);
-		/* UNIPHY_PLL_POSTDIV1_CFG */
+		
 		DSS_REG_W(mdss_edp_base, 0x04, 0x00);
-		/* UNIPHY_PLL_POSTDIV3_CFG */
+		
 		DSS_REG_W(mdss_edp_base, 0x28, 0x00);
 	} else {
 		pr_err("%s: rate=%d is NOT supported\n", __func__,
@@ -1965,13 +1908,13 @@ static int edp_vco_set_rate(struct clk *c, unsigned long vco_rate)
 		rc =  -EINVAL;
 	}
 
-	DSS_REG_W(mdss_edp_base, 0x20, 0x01); /* UNIPHY_PLL_GLB_CFG */
+	DSS_REG_W(mdss_edp_base, 0x20, 0x01); 
 	udelay(100);
-	DSS_REG_W(mdss_edp_base, 0x20, 0x05); /* UNIPHY_PLL_GLB_CFG */
+	DSS_REG_W(mdss_edp_base, 0x20, 0x05); 
 	udelay(100);
-	DSS_REG_W(mdss_edp_base, 0x20, 0x07); /* UNIPHY_PLL_GLB_CFG */
+	DSS_REG_W(mdss_edp_base, 0x20, 0x07); 
 	udelay(100);
-	DSS_REG_W(mdss_edp_base, 0x20, 0x0f); /* UNIPHY_PLL_GLB_CFG */
+	DSS_REG_W(mdss_edp_base, 0x20, 0x0f); 
 	udelay(100);
 	mdss_ahb_clk_enable(0);
 
@@ -1985,7 +1928,7 @@ static int edp_pll_ready_poll(void)
 	int cnt;
 	u32 status;
 
-	/* ahb clock should be enabled by caller */
+	
 	cnt = 100;
 	while (cnt--) {
 		udelay(100);
@@ -2013,7 +1956,7 @@ static int edp_vco_enable(struct clk *c)
 		return -EPERM;
 	}
 
-	/* called from enable, irq disable. can not call clk_prepare */
+	
 	rc = clk_enable(mdss_ahb_clk);
 	if (rc) {
 		pr_err("%s: failed to enable mdss ahb clock. rc=%d\n",
@@ -2025,13 +1968,13 @@ static int edp_vco_enable(struct clk *c)
 		ready = edp_pll_ready_poll();
 		if (ready)
 			break;
-		DSS_REG_W(mdss_edp_base, 0x20, 0x01); /* UNIPHY_PLL_GLB_CFG */
+		DSS_REG_W(mdss_edp_base, 0x20, 0x01); 
 		udelay(100);
-		DSS_REG_W(mdss_edp_base, 0x20, 0x05); /* UNIPHY_PLL_GLB_CFG */
+		DSS_REG_W(mdss_edp_base, 0x20, 0x05); 
 		udelay(100);
-		DSS_REG_W(mdss_edp_base, 0x20, 0x07); /* UNIPHY_PLL_GLB_CFG */
+		DSS_REG_W(mdss_edp_base, 0x20, 0x07); 
 		udelay(100);
-		DSS_REG_W(mdss_edp_base, 0x20, 0x0f); /* UNIPHY_PLL_GLB_CFG */
+		DSS_REG_W(mdss_edp_base, 0x20, 0x0f); 
 		udelay(100);
 	}
 	clk_disable(mdss_ahb_clk);
@@ -2054,7 +1997,7 @@ static void edp_vco_disable(struct clk *c)
 		return;
 	}
 
-	/* called from unprepare which is not atomic */
+	
 	rc = mdss_ahb_clk_enable(1);
 	if (rc) {
 		pr_err("%s: failed to enable mdss ahb clock. rc=%d\n",
@@ -2148,7 +2091,7 @@ static int edp_pll_lock_status(void)
 			__func__, rc);
 		return rc;
 	}
-	/* poll for PLL ready status */
+	
 	if (readl_poll_timeout_noirq((mdss_edp_base + 0xc0),
 			status, ((status & BIT(0)) == 1),
 			PLL_POLL_MAX_READS, PLL_POLL_TIMEOUT_US)) {
@@ -2176,7 +2119,6 @@ static enum handoff edp_vco_handoff(struct clk *c)
 	return ret;
 }
 
-/* edp vco rate */
 static unsigned long edp_vco_rate_list[] = {
 		810000000, 1350000000, 0};
 
@@ -2220,7 +2162,7 @@ static unsigned long edp_mainlink_get_rate(struct clk *c)
 }
 
 static struct clk_ops edp_mainlink_clk_src_ops;
-static struct clk_div_ops fixed_5div_ops; /* null ops */
+static struct clk_div_ops fixed_5div_ops; 
 
 struct div_clk edp_mainlink_clk_src = {
 	.ops = &fixed_5div_ops,
@@ -2239,12 +2181,6 @@ struct div_clk edp_mainlink_clk_src = {
 
 static struct clk_ops edp_pixel_clk_ops;
 
-/*
- * this rate is from pll to clock controller
- * output from pll to CC has two possibilities
- * 1: if mainlink rate is 270M, then 675M
- * 2: if mainlink rate is 162M, then 810M
- */
 static int edp_pixel_set_div(struct div_clk *clk, int div)
 {
 	int rc = 0;
@@ -2257,7 +2193,7 @@ static int edp_pixel_set_div(struct div_clk *clk, int div)
 	}
 
 	pr_debug("%s: div=%d\n", __func__, div);
-	DSS_REG_W(mdss_edp_base, 0x24, (div - 1)); /* UNIPHY_PLL_POSTDIV2_CFG */
+	DSS_REG_W(mdss_edp_base, 0x24, (div - 1)); 
 
 	mdss_ahb_clk_enable(0);
 	return 0;
@@ -2271,7 +2207,7 @@ static int edp_pixel_get_div(struct div_clk *clk)
 		pr_debug("%s: Failed to enable mdss ahb clock\n", __func__);
 		return 1;
 	}
-	div = DSS_REG_R(mdss_edp_base, 0x24); /* UNIPHY_PLL_POSTDIV2_CFG */
+	div = DSS_REG_R(mdss_edp_base, 0x24); 
 	div &= 0x01;
 	pr_debug("%s: div=%d\n", __func__, div);
 	mdss_ahb_clk_enable(0);
@@ -2298,7 +2234,6 @@ struct div_clk edp_pixel_clk_src = {
 	},
 };
 
-/* HDMI PLL DIV CLK */
 
 static unsigned long hdmi_vco_get_rate(struct clk *c)
 {
@@ -2386,7 +2321,7 @@ static int hdmi_pll_lock_status(void)
 			__func__, rc);
 		return 0;
 	}
-	/* poll for PLL ready status */
+	
 	if (readl_poll_timeout_noirq((hdmi_phy_base + HDMI_PHY_STATUS),
 			status, ((status & BIT(0)) == 1),
 			PLL_POLL_MAX_READS, PLL_POLL_TIMEOUT_US)) {

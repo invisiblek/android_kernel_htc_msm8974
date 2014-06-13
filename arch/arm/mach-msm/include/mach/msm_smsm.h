@@ -39,10 +39,6 @@ enum {
 };
 #endif
 
-/*
- * Ordered by when processors adopted the SMSM protocol.  May not be 1-to-1
- * with SMEM PIDs, despite initial expectations.
- */
 enum {
 	SMSM_APPS = SMEM_APPS,
 	SMSM_MODEM = SMEM_MODEM,
@@ -77,6 +73,7 @@ extern uint32_t SMSM_NUM_HOSTS;
 #define SMSM_APPS_SHUTDOWN     0x00400000
 #define SMSM_SMD_LOOPBACK      0x00800000
 #define SMSM_RUN_QUIET         0x01000000
+#define SMSM_ERASE_EFS         0x00200000
 #define SMSM_MODEM_WAIT        0x02000000
 #define SMSM_MODEM_BREAK       0x04000000
 #define SMSM_MODEM_CONTINUE    0x08000000
@@ -114,20 +111,6 @@ enum {
 int smsm_change_state(uint32_t smsm_entry,
 		      uint32_t clear_mask, uint32_t set_mask);
 
-/*
- * Changes the global interrupt mask.  The set and clear masks are re-applied
- * every time the global interrupt mask is updated for callback registration
- * and de-registration.
- *
- * The clear mask is applied first, so if a bit is set to 1 in both the clear
- * mask and the set mask, the result will be that the interrupt is set.
- *
- * @smsm_entry  SMSM entry to change
- * @clear_mask  1 = clear bit, 0 = no-op
- * @set_mask    1 = set bit, 0 = no-op
- *
- * @returns 0 for success, < 0 for error
- */
 int smsm_change_intr_mask(uint32_t smsm_entry,
 			  uint32_t clear_mask, uint32_t set_mask);
 int smsm_get_intr_mask(uint32_t smsm_entry, uint32_t *intr_mask);
@@ -153,20 +136,6 @@ static inline int smsm_change_state(uint32_t smsm_entry,
 	return -ENODEV;
 }
 
-/*
- * Changes the global interrupt mask.  The set and clear masks are re-applied
- * every time the global interrupt mask is updated for callback registration
- * and de-registration.
- *
- * The clear mask is applied first, so if a bit is set to 1 in both the clear
- * mask and the set mask, the result will be that the interrupt is set.
- *
- * @smsm_entry  SMSM entry to change
- * @clear_mask  1 = clear bit, 0 = no-op
- * @set_mask    1 = set bit, 0 = no-op
- *
- * @returns 0 for success, < 0 for error
- */
 static inline int smsm_change_intr_mask(uint32_t smsm_entry,
 			  uint32_t clear_mask, uint32_t set_mask)
 {

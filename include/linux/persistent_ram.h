@@ -48,7 +48,7 @@ struct persistent_ram_zone {
 	struct persistent_ram_buffer *buffer;
 	size_t buffer_size;
 
-	/* ECC correction */
+	
 	bool ecc;
 	char *par_buffer;
 	char *par_header;
@@ -69,6 +69,8 @@ struct persistent_ram_zone {
 int persistent_ram_early_init(struct persistent_ram *ram);
 
 struct persistent_ram_zone *persistent_ram_init_ringbuffer(struct device *dev,
+		bool ecc);
+struct persistent_ram_zone *persistent_ram_init_ringbuffer_by_name(const char *name,
 		bool ecc);
 
 int persistent_ram_write(struct persistent_ram_zone *prz, const void *s,

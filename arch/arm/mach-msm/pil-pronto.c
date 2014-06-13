@@ -32,6 +32,10 @@
 #include <mach/ramdump.h>
 #include <mach/msm_smem.h>
 #include <mach/msm_bus_board.h>
+#if defined(CONFIG_HTC_FEATURES_SSR)
+#include <mach/devices_dtb.h>
+#include <mach/devices_cmdline.h>
+#endif
 
 #include "peripheral-loader.h"
 #include "scm-pas.h"
@@ -85,6 +89,7 @@ struct pronto_data {
 	bool crash;
 	struct delayed_work cancel_vote_work;
 	struct ramdump_device *ramdump_dev;
+	struct work_struct wcnss_wdog_bite_work;
 };
 
 static int pil_pronto_make_proxy_vote(struct pil_desc *pil)
@@ -124,43 +129,43 @@ static int pil_pronto_reset(struct pil_desc *pil)
 	void __iomem *base = drv->base;
 	phys_addr_t start_addr = pil_get_entry_addr(pil);
 
-	/* Deassert reset to subsystem and wait for propagation */
+	
 	reg = readl_relaxed(drv->reset_base);
 	reg &= ~CLK_CTL_WCNSS_RESTART_BIT;
 	writel_relaxed(reg, drv->reset_base);
 	mb();
 	udelay(2);
 
-	/* Configure boot address */
+	
 	writel_relaxed(start_addr >> 16, base +
 			PRONTO_PMU_CCPU_BOOT_REMAP_ADDR);
 
-	/* Use the high vector table */
+	
 	reg = readl_relaxed(base + PRONTO_PMU_CCPU_CTL);
 	reg |= PRONTO_PMU_CCPU_CTL_REMAP_EN | PRONTO_PMU_CCPU_CTL_HIGH_IVT;
 	writel_relaxed(reg, base + PRONTO_PMU_CCPU_CTL);
 
-	/* Turn on AHB clock of common_ss */
+	
 	reg = readl_relaxed(base + PRONTO_PMU_COMMON_AHB_CBCR);
 	reg |= PRONTO_PMU_COMMON_AHB_CBCR_CLK_EN;
 	writel_relaxed(reg, base + PRONTO_PMU_COMMON_AHB_CBCR);
 
-	/* Turn on CPU clock of common_ss */
+	
 	reg = readl_relaxed(base + PRONTO_PMU_COMMON_CPU_CBCR);
 	reg |= PRONTO_PMU_COMMON_CPU_CBCR_CLK_EN;
 	writel_relaxed(reg, base + PRONTO_PMU_COMMON_CPU_CBCR);
 
-	/* Enable A2XB bridge */
+	
 	reg = readl_relaxed(base + PRONTO_PMU_COMMON_CSR);
 	reg |= PRONTO_PMU_COMMON_CSR_A2XB_CFG_EN;
 	writel_relaxed(reg, base + PRONTO_PMU_COMMON_CSR);
 
-	/* Enable common_ss power */
+	
 	reg = readl_relaxed(base + PRONTO_PMU_COMMON_GDSCR);
 	reg &= ~PRONTO_PMU_COMMON_GDSCR_SW_COLLAPSE;
 	writel_relaxed(reg, base + PRONTO_PMU_COMMON_GDSCR);
 
-	/* Wait for AHB clock to be on */
+	
 	rc = readl_tight_poll_timeout(base + PRONTO_PMU_COMMON_AHB_CBCR,
 				      reg,
 				      !(reg & PRONTO_PMU_COMMON_AHB_CLK_OFF),
@@ -170,7 +175,7 @@ static int pil_pronto_reset(struct pil_desc *pil)
 		return rc;
 	}
 
-	/* Wait for CPU clock to be on */
+	
 	rc = readl_tight_poll_timeout(base + PRONTO_PMU_COMMON_CPU_CBCR,
 				      reg,
 				      !(reg & PRONTO_PMU_COMMON_CPU_CLK_OFF),
@@ -180,7 +185,7 @@ static int pil_pronto_reset(struct pil_desc *pil)
 		return rc;
 	}
 
-	/* Deassert ARM9 software reset */
+	
 	reg = readl_relaxed(base + PRONTO_PMU_SOFT_RESET);
 	reg &= ~PRONTO_PMU_SOFT_RESET_CRCM_CCPU_SOFT_RESET;
 	writel_relaxed(reg, base + PRONTO_PMU_SOFT_RESET);
@@ -194,7 +199,7 @@ static int pil_pronto_shutdown(struct pil_desc *pil)
 	int ret;
 	u32 reg, status;
 
-	/* Halt A2XB */
+	
 	writel_relaxed(1, drv->axi_halt_base + AXI_HALTREQ);
 	ret = readl_poll_timeout(drv->axi_halt_base + AXI_HALTACK,
 				status, status, 50, HALT_ACK_TIMEOUT_US);
@@ -205,16 +210,16 @@ static int pil_pronto_shutdown(struct pil_desc *pil)
 
 	writel_relaxed(0, drv->axi_halt_base + AXI_HALTREQ);
 
-	/* Assert reset to Pronto */
+	
 	reg = readl_relaxed(drv->reset_base);
 	reg |= CLK_CTL_WCNSS_RESTART_BIT;
 	writel_relaxed(reg, drv->reset_base);
 
-	/* Wait for reset to complete */
+	
 	mb();
 	usleep_range(1000, 2000);
 
-	/* Deassert reset to subsystem and wait for propagation */
+	
 	reg = readl_relaxed(drv->reset_base);
 	reg &= ~CLK_CTL_WCNSS_RESTART_BIT;
 	writel_relaxed(reg, drv->reset_base);
@@ -276,7 +281,11 @@ static void pronto_stop(const struct subsys_desc *desc)
 	pil_shutdown(&drv->desc);
 }
 
+#if defined(CONFIG_HTC_DEBUG_SSR)
+static void log_wcnss_sfr(struct subsys_device *dev)
+#else
 static void log_wcnss_sfr(void)
+#endif
 {
 	char *smem_reset_reason;
 	unsigned smem_reset_size;
@@ -293,6 +302,9 @@ static void log_wcnss_sfr(void)
 	} else {
 		pr_err("wcnss subsystem failure reason: %.81s\n",
 				smem_reset_reason);
+#if defined(CONFIG_HTC_DEBUG_SSR)
+		subsys_set_restart_reason(dev, smem_reset_reason);
+#endif
 		memset(smem_reset_reason, 0, smem_reset_size);
 		wmb();
 	}
@@ -300,7 +312,11 @@ static void log_wcnss_sfr(void)
 
 static void restart_wcnss(struct pronto_data *drv)
 {
+#if defined(CONFIG_HTC_DEBUG_SSR)
+	log_wcnss_sfr(drv->subsys);
+#else
 	log_wcnss_sfr();
+#endif
 	subsystem_restart_dev(drv->subsys);
 }
 
@@ -309,6 +325,7 @@ static irqreturn_t wcnss_err_fatal_intr_handler(int irq, void *dev_id)
 	struct pronto_data *drv = subsys_to_drv(dev_id);
 
 	pr_err("Fatal error on the wcnss.\n");
+    subsys_set_crash_status(drv->subsys, true);
 
 	drv->crash = true;
 	if (drv->restart_inprogress) {
@@ -320,6 +337,16 @@ static irqreturn_t wcnss_err_fatal_intr_handler(int irq, void *dev_id)
 	restart_wcnss(drv);
 
 	return IRQ_HANDLED;
+}
+
+static void wcnss_wdog_bite_work_hdlr(struct work_struct *wcnss_work)
+{
+	struct pronto_data *drv = container_of(wcnss_work, struct pronto_data,
+		wcnss_wdog_bite_work);
+
+	wcnss_log_debug_regs_on_bite();
+
+	restart_wcnss(drv);
 }
 
 static irqreturn_t wcnss_wdog_bite_irq_hdlr(int irq, void *dev_id)
@@ -334,10 +361,14 @@ static irqreturn_t wcnss_wdog_bite_irq_hdlr(int irq, void *dev_id)
 		pr_err("Ignoring wcnss bite irq, restart in progress\n");
 		return IRQ_HANDLED;
 	}
-	wcnss_log_debug_regs_on_bite();
 
+#if defined(CONFIG_HTC_DEBUG_SSR)
+	pr_err("Watchdog bite received from Pronto!\n");
+	subsys_set_restart_reason(drv->subsys, "Watchdog bite received from Pronto!");
+#endif
+	subsys_set_crash_status(drv->subsys, true);
 	drv->restart_inprogress = true;
-	restart_wcnss(drv);
+	schedule_work(&drv->wcnss_wdog_bite_work);
 
 	return IRQ_HANDLED;
 }
@@ -490,6 +521,7 @@ static int __devinit pil_pronto_probe(struct platform_device *pdev)
 	drv->subsys_desc.wdog_bite_handler = wcnss_wdog_bite_irq_hdlr;
 
 	INIT_DELAYED_WORK(&drv->cancel_vote_work, wcnss_post_bootup);
+	INIT_WORK(&drv->wcnss_wdog_bite_work, wcnss_wdog_bite_work_hdlr);
 
 	drv->subsys = subsys_register(&drv->subsys_desc);
 	if (IS_ERR(drv->subsys)) {
@@ -497,13 +529,29 @@ static int __devinit pil_pronto_probe(struct platform_device *pdev)
 		goto err_subsys;
 	}
 
+#if defined(CONFIG_HTC_FEATURES_SSR)
+#if defined(CONFIG_HTC_FEATURES_SSR_WCNSS_ENABLE)
+	subsys_set_restart_level(drv->subsys, RESET_SUBSYS_COUPLED);
+
+	
+	if (get_radio_flag() & BIT(3))
+		subsys_set_enable_ramdump(drv->subsys, ENABLE_RAMDUMP);
+#else
+	if (get_kernel_flag() & KERNEL_FLAG_ENABLE_SSR_WCNSS)
+		subsys_set_restart_level(drv->subsys, RESET_SUBSYS_COUPLED);
+#endif
+
+	if (board_mfg_mode() != 0)
+		subsys_set_restart_level(drv->subsys, RESET_SOC);
+#endif
+
 	drv->ramdump_dev = create_ramdump_device("pronto", &pdev->dev);
 	if (!drv->ramdump_dev) {
 		ret = -ENOMEM;
 		goto err_irq;
 	}
 
-	/* Initialize common_ss GDSCR to wait 4 cycles between states */
+	
 	regval = readl_relaxed(drv->base + PRONTO_PMU_COMMON_GDSCR)
 		& PRONTO_PMU_COMMON_GDSCR_SW_COLLAPSE;
 	regval |= (2 << EN_REST_WAIT) | (2 << EN_FEW_WAIT)

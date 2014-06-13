@@ -36,9 +36,12 @@
 #include <linux/mfd/pm8xxx/misc.h>
 #include <linux/qpnp/qpnp-adc.h>
 
+#include <mach/board.h>
 #include <mach/msm_smd.h>
 #include <mach/msm_iomap.h>
 #include <mach/subsystem_restart.h>
+
+#include <mach/devices_dtb.h>
 
 #ifdef CONFIG_WCNSS_MEM_PRE_ALLOC
 #include "wcnss_prealloc.h"
@@ -49,7 +52,6 @@
 #define VERSION "1.01"
 #define WCNSS_PIL_DEVICE "wcnss"
 
-/* module params */
 #define WCNSS_CONFIG_UNSPECIFIED (-1)
 #define UINT32_MAX (0xFFFFFFFFU)
 
@@ -143,6 +145,7 @@ static DEFINE_SPINLOCK(reg_spinlock);
 
 #define MSM_PRONTO_PLL_BASE				0xfb21b1c0
 #define PRONTO_PLL_STATUS_OFFSET		0x1c
+#define MSM_PRONTO_TXP_STATUS           0xfb08040c
 
 #define MSM_PRONTO_TXP_STATUS           0xfb08040c
 #define MSM_PRONTO_TXP_PHY_ABORT        0xfb080488
@@ -162,12 +165,10 @@ static DEFINE_SPINLOCK(reg_spinlock);
 #define WCNSS_MIN_CMD_LEN		(3)
 #define WCNSS_MIN_SERIAL_LEN		(6)
 
-/* control messages from userspace */
 #define WCNSS_USR_CTRL_MSG_START  0x00000000
 #define WCNSS_USR_SERIAL_NUM      (WCNSS_USR_CTRL_MSG_START + 1)
 #define WCNSS_USR_HAS_CAL_DATA    (WCNSS_USR_CTRL_MSG_START + 2)
 
-/* message types */
 #define WCNSS_CTRL_MSG_START	0x01000000
 #define	WCNSS_VERSION_REQ             (WCNSS_CTRL_MSG_START + 0)
 #define	WCNSS_VERSION_RSP             (WCNSS_CTRL_MSG_START + 1)
@@ -178,8 +179,8 @@ static DEFINE_SPINLOCK(reg_spinlock);
 #define	WCNSS_CALDATA_DNLD_REQ        (WCNSS_CTRL_MSG_START + 6)
 #define	WCNSS_CALDATA_DNLD_RSP        (WCNSS_CTRL_MSG_START + 7)
 #define	WCNSS_VBATT_LEVEL_IND         (WCNSS_CTRL_MSG_START + 8)
-#define	WCNSS_BUILD_VER_REQ           (WCNSS_CTRL_MSG_START + 9)
-#define	WCNSS_BUILD_VER_RSP           (WCNSS_CTRL_MSG_START + 10)
+#define WCNSS_BUILD_VER_REQ           (WCNSS_CTRL_MSG_START + 9)
+#define WCNSS_BUILD_VER_RSP           (WCNSS_CTRL_MSG_START + 10)
 
 
 #define VALID_VERSION(version) \
@@ -218,10 +219,6 @@ static struct wcnss_pmic_dump wcnss_pmic_reg_dump[] = {
 
 #define NVBIN_FILE "wlan/prima/WCNSS_qcom_wlan_nv.bin"
 
-/*
- * On SMD channel 4K of maximum data can be transferred, including message
- * header, so NV fragment size as next multiple of 1Kb is 3Kb.
- */
 #define NV_FRAGMENT_SIZE  3072
 #define MAX_CALIBRATED_DATA_SIZE  (64*1024)
 #define LAST_FRAGMENT        (1 << 0)
@@ -231,82 +228,34 @@ static struct wcnss_pmic_dump wcnss_pmic_reg_dump[] = {
 #define WCNSS_RESP_FAIL      0
 
 
-/* Macro to find the total number fragments of the NV bin Image */
 #define TOTALFRAGMENTS(x) (((x % NV_FRAGMENT_SIZE) == 0) ? \
 	(x / NV_FRAGMENT_SIZE) : ((x / NV_FRAGMENT_SIZE) + 1))
 
 struct nvbin_dnld_req_params {
-	/*
-	 * Fragment sequence number of the NV bin Image. NV Bin Image
-	 * might not fit into one message due to size limitation of
-	 * the SMD channel FIFO so entire NV blob is chopped into
-	 * multiple fragments starting with seqeunce number 0. The
-	 * last fragment is indicated by marking is_last_fragment field
-	 * to 1. At receiving side, NV blobs would be concatenated
-	 * together without any padding bytes in between.
-	 */
 	unsigned short frag_number;
 
-	/*
-	 * bit 0: When set to 1 it indicates that no more fragments will
-	 * be sent.
-	 * bit 1: When set, a new message will be followed by this message
-	 * bit 2- bit 14:  Reserved
-	 * bit 15: when set, it indicates that the sender is capable of
-	 * receiving Calibrated data.
-	 */
 	unsigned short msg_flags;
 
-	/* NV Image size (number of bytes) */
+	
 	unsigned int nvbin_buffer_size;
 
-	/*
-	 * Following the 'nvbin_buffer_size', there should be
-	 * nvbin_buffer_size bytes of NV bin Image i.e.
-	 * uint8[nvbin_buffer_size].
-	 */
 };
 
 
 struct nvbin_dnld_req_msg {
-	/*
-	 * Note: The length specified in nvbin_dnld_req_msg messages
-	 * should be hdr.msg_len = sizeof(nvbin_dnld_req_msg) +
-	 * nvbin_buffer_size.
-	 */
 	struct smd_msg_hdr hdr;
 	struct nvbin_dnld_req_params dnld_req_params;
 };
 
 struct cal_data_params {
 
-	/* The total size of the calibrated data, including all the
-	 * fragments.
-	 */
 	unsigned int total_size;
 	unsigned short frag_number;
-	/*
-	 * bit 0: When set to 1 it indicates that no more fragments will
-	 * be sent.
-	 * bit 1: When set, a new message will be followed by this message
-	 * bit 2- bit 15: Reserved
-	 */
 	unsigned short msg_flags;
-	/*
-	 * fragment size
-	 */
 	unsigned int frag_size;
-	/*
-	 * Following the frag_size, frag_size of fragmented
-	 * data will be followed.
-	 */
 };
 
 struct cal_data_msg {
-	/*
-	 * The length specified in cal_data_msg should be
-	 * hdr.msg_len = sizeof(cal_data_msg) + frag_size
-	 */
 	struct smd_msg_hdr hdr;
 	struct cal_data_params cal_params;
 };
@@ -467,10 +416,6 @@ void wcnss_riva_dump_pmic_regs(void)
 	}
 }
 
-/* wcnss_reset_intr() is invoked when host drivers fails to
- * communicate with WCNSS over SMD; so logging these registers
- * helps to know WCNSS failure reason
- */
 void wcnss_riva_log_debug_regs(void)
 {
 	void __iomem *ccu_reg;
@@ -496,7 +441,6 @@ void wcnss_riva_log_debug_regs(void)
 }
 EXPORT_SYMBOL(wcnss_riva_log_debug_regs);
 
-/* Log pronto debug registers before sending reset interrupt */
 void wcnss_pronto_log_debug_regs(void)
 {
 	void __iomem *reg_addr, *tst_addr, *tst_ctrl_addr;
@@ -590,7 +534,7 @@ void wcnss_pronto_log_debug_regs(void)
 	tst_addr = penv->pronto_a2xb_base + A2XB_TSTBUS_OFFSET;
 	tst_ctrl_addr = penv->pronto_a2xb_base + A2XB_TSTBUS_CTRL_OFFSET;
 
-	/*  read data FIFO */
+	
 	reg = 0;
 	reg = reg | WCNSS_TSTBUS_CTRL_EN | WCNSS_TSTBUS_CTRL_RDFIFO;
 	writel_relaxed(reg, tst_ctrl_addr);
@@ -598,7 +542,7 @@ void wcnss_pronto_log_debug_regs(void)
 	pr_info_ratelimited("%s:  Read data FIFO testbus %08x\n",
 					__func__, reg);
 
-	/*  command FIFO */
+	
 	reg = 0;
 	reg = reg | WCNSS_TSTBUS_CTRL_EN | WCNSS_TSTBUS_CTRL_CMDFIFO;
 	writel_relaxed(reg, tst_ctrl_addr);
@@ -606,7 +550,7 @@ void wcnss_pronto_log_debug_regs(void)
 	pr_info_ratelimited("%s:  Command FIFO testbus %08x\n",
 					__func__, reg);
 
-	/*  write data FIFO */
+	
 	reg = 0;
 	reg = reg | WCNSS_TSTBUS_CTRL_EN | WCNSS_TSTBUS_CTRL_WRFIFO;
 	writel_relaxed(reg, tst_ctrl_addr);
@@ -614,7 +558,7 @@ void wcnss_pronto_log_debug_regs(void)
 	pr_info_ratelimited("%s:  Rrite data FIFO testbus %08x\n",
 					__func__, reg);
 
-	/*   AXIM SEL CFG0 */
+	
 	reg = 0;
 	reg = reg | WCNSS_TSTBUS_CTRL_EN | WCNSS_TSTBUS_CTRL_AXIM |
 				WCNSS_TSTBUS_CTRL_AXIM_CFG0;
@@ -623,7 +567,7 @@ void wcnss_pronto_log_debug_regs(void)
 	pr_info_ratelimited("%s:  AXIM SEL CFG0 testbus %08x\n",
 					__func__, reg);
 
-	/*   AXIM SEL CFG1 */
+	
 	reg = 0;
 	reg = reg | WCNSS_TSTBUS_CTRL_EN | WCNSS_TSTBUS_CTRL_AXIM |
 				WCNSS_TSTBUS_CTRL_AXIM_CFG1;
@@ -632,7 +576,7 @@ void wcnss_pronto_log_debug_regs(void)
 	pr_info_ratelimited("%s:  AXIM SEL CFG1 testbus %08x\n",
 					__func__, reg);
 
-	/*   CTRL SEL CFG0 */
+	
 	reg = 0;
 	reg = reg | WCNSS_TSTBUS_CTRL_EN | WCNSS_TSTBUS_CTRL_CTRL |
 		WCNSS_TSTBUS_CTRL_CTRL_CFG0;
@@ -641,7 +585,7 @@ void wcnss_pronto_log_debug_regs(void)
 	pr_info_ratelimited("%s:  CTRL SEL CFG0 testbus %08x\n",
 					__func__, reg);
 
-	/*   CTRL SEL CFG1 */
+	
 	reg = 0;
 	reg = reg | WCNSS_TSTBUS_CTRL_EN | WCNSS_TSTBUS_CTRL_CTRL |
 		WCNSS_TSTBUS_CTRL_CTRL_CFG1;
@@ -686,14 +630,53 @@ void wcnss_pronto_log_debug_regs(void)
 EXPORT_SYMBOL(wcnss_pronto_log_debug_regs);
 
 #ifdef CONFIG_WCNSS_REGISTER_DUMP_ON_BITE
+static void wcnss_log_iris_regs(void)
+{
+	int i;
+	u32 reg_val;
+	u32 regs_array[] = {
+		0x04, 0x05, 0x11, 0x1e, 0x40, 0x48,
+		0x49, 0x4b, 0x00, 0x01, 0x4d};
+
+	pr_info("IRIS Registers [address] : value\n");
+
+	for (i = 0; i < ARRAY_SIZE(regs_array); i++) {
+		reg_val = wcnss_rf_read_reg(regs_array[i]);
+		pr_info("[0x%08x] : 0x%08x\n", regs_array[i], reg_val);
+	}
+}
+
 void wcnss_log_debug_regs_on_bite(void)
 {
-	if (wcnss_hardware_type() == WCNSS_PRONTO_HW)
-		wcnss_pronto_log_debug_regs();
+	struct platform_device *pdev = wcnss_get_platform_device();
+	struct clk *measure;
+	struct clk *wcnss_debug_mux;
+	unsigned long clk_rate;
+
+	if (wcnss_hardware_type() != WCNSS_PRONTO_HW)
+		return;
+
+	measure = clk_get(&pdev->dev, "measure");
+	wcnss_debug_mux = clk_get(&pdev->dev, "wcnss_debug");
+
+	if (!IS_ERR(measure) && !IS_ERR(wcnss_debug_mux)) {
+		clk_set_parent(measure, wcnss_debug_mux);
+		clk_rate = clk_get_rate(measure);
+		pr_debug("wcnss: clock frequency is: %luHz\n", clk_rate);
+
+		if (clk_rate) {
+			wcnss_pronto_log_debug_regs();
+		} else {
+			pr_err("clock frequency is zero, cannot access PMU or other registers\n");
+			wcnss_log_iris_regs();
+		}
+	}
+    else{
+        pr_err("Can't access measure or wcnss_debug\n");
+    }
 }
 #endif
 
-/* interface to reset wcnss by sending the reset interrupt */
 void wcnss_reset_intr(void)
 {
 	if (wcnss_hardware_type() == WCNSS_PRONTO_HW) {
@@ -760,12 +743,14 @@ static void wcnss_smd_notify_event(void *data, unsigned int event)
 			pr_err("wcnss: failed to read from smd %d\n", len);
 			return;
 		}
+		printk("wcnss_debug: wcnss_smd_notify_event() : Start to schedule wcnssctrl_rx_work to read smd packet \r\n");
 		schedule_work(&penv->wcnssctrl_rx_work);
 		break;
 
 	case SMD_EVENT_OPEN:
 		pr_debug("wcnss: opening WCNSS SMD channel :%s",
 				WCNSS_CTRL_CHANNEL);
+		printk("wcnss_debug: opening WCNSS SMD channel :%s", WCNSS_CTRL_CHANNEL);
 		schedule_work(&penv->wcnssctrl_version_work);
 
 		break;
@@ -790,9 +775,11 @@ static void wcnss_post_bootup(struct work_struct *work)
 
 	pr_info("%s: Cancel APPS vote for Iris & WCNSS\n", __func__);
 
-	/* Since WCNSS is up, cancel any APPS vote for Iris & WCNSS VREGs  */
+	
 	wcnss_wlan_power(&penv->pdev->dev, &penv->wlan_config,
 		WCNSS_WLAN_SWITCH_OFF, NULL);
+	
+	wcnss_allow_suspend();
 
 }
 
@@ -861,7 +848,7 @@ wcnss_wlan_ctrl_probe(struct platform_device *pdev)
 
 	pr_info("%s: SMD ctrl channel up\n", __func__);
 
-	/* Schedule a work to do any post boot up activity */
+	
 	INIT_DELAYED_WORK(&penv->wcnss_work, wcnss_post_bootup);
 	schedule_delayed_work(&penv->wcnss_work, msecs_to_jiffies(10000));
 
@@ -924,7 +911,6 @@ wcnss_ctrl_probe(struct platform_device *pdev)
 	return 0;
 }
 
-/* platform device for WCNSS_CTRL SMD channel */
 static struct platform_driver wcnss_ctrl_driver = {
 	.driver = {
 		.name	= "WCNSS_CTRL",
@@ -960,6 +946,7 @@ EXPORT_SYMBOL(wcnss_get_wlan_config);
 
 int wcnss_device_ready(void)
 {
+	printk("wcnss_debug : wcnss_device_ready(): penv->nv_downloaded = 0x%x\r\n", penv->nv_downloaded);
 	if (penv && penv->pdev && penv->nv_downloaded)
 		return 1;
 	return 0;
@@ -1085,7 +1072,7 @@ void wcnss_suspend_notify(void)
 	if (wcnss_hardware_type() == WCNSS_PRONTO_HW)
 		return;
 
-	/* For Riva */
+	
 	pmu_spare_reg = penv->msm_wcnss_base + RIVA_SPARE_OFFSET;
 	spin_lock_irqsave(&reg_spinlock, flags);
 	reg = readl_relaxed(pmu_spare_reg);
@@ -1107,7 +1094,7 @@ void wcnss_resume_notify(void)
 	if (wcnss_hardware_type() == WCNSS_PRONTO_HW)
 		return;
 
-	/* For Riva */
+	
 	pmu_spare_reg = penv->msm_wcnss_base + RIVA_SPARE_OFFSET;
 
 	spin_lock_irqsave(&reg_spinlock, flags);
@@ -1191,6 +1178,7 @@ static int wcnss_smd_tx(void *data, int len)
 		pr_err("wcnss: failed to write Command %d", len);
 		ret = -ENODEV;
 	}
+	printk("wcnss_debug: wcnss_smd_tx() finish and exit \r\n");
 	return ret;
 }
 
@@ -1335,7 +1323,6 @@ static void wcnss_send_cal_rsp(unsigned char fw_status)
 	kfree(msg);
 }
 
-/* Collect calibrated data from WCNSS */
 void extract_cal_data(int len)
 {
 	int rc;
@@ -1365,7 +1352,7 @@ void extract_cal_data(int len)
 	}
 
 	if (penv->fw_cal_available) {
-		/* ignore cal upload from SSR */
+		
 		smd_read(penv->smd_ch, NULL, calhdr.frag_size);
 		penv->fw_cal_exp_frag++;
 		if (calhdr.msg_flags & LAST_FRAGMENT) {
@@ -1485,11 +1472,11 @@ static void wcnssctrl_rx_handler(struct work_struct *worker)
 			"%02x%02x%02x%02x", pversion->major, pversion->minor,
 					pversion->version, pversion->revision);
 		pr_info("wcnss: version %s\n", penv->wcnss_version);
-		/* schedule work to download nvbin to ccpu */
+		
 		hw_type = wcnss_hardware_type();
 		switch (hw_type) {
 		case WCNSS_RIVA_HW:
-			/* supported only if riva major >= 1 and minor >= 4 */
+			
 			if ((pversion->major >= 1) && (pversion->minor >= 4)) {
 				pr_info("wcnss: schedule dnld work for riva\n");
 				schedule_work(&penv->wcnssctrl_nvbin_dnld_work);
@@ -1503,7 +1490,7 @@ static void wcnssctrl_rx_handler(struct work_struct *worker)
 			if (rc < 0)
 				pr_err("wcnss: smd tx failed: %s\n", __func__);
 
-			/* supported only if pronto major >= 1 and minor >= 4 */
+			
 			if ((pversion->major >= 1) && (pversion->minor >= 4)) {
 				pr_info("wcnss: schedule dnld work for pronto\n");
 				schedule_work(&penv->wcnssctrl_nvbin_dnld_work);
@@ -1597,10 +1584,6 @@ static void wcnss_nvbin_dnld(void)
 		goto out;
 	}
 
-	/*
-	 * First 4 bytes in nv blob is validity bitmap.
-	 * We cannot validate nv, so skip those 4 bytes.
-	 */
 	nv_blob_addr = nv->data + 4;
 	nv_blob_size = nv->size - 4;
 
@@ -1609,7 +1592,7 @@ static void wcnss_nvbin_dnld(void)
 	pr_info("wcnss: NV bin size: %d, total_fragments: %d\n",
 		nv_blob_size, total_fragments);
 
-	/* get buffer for nv bin dnld req message */
+	
 	outbuffer = kmalloc((sizeof(struct nvbin_dnld_req_msg) +
 		NV_FRAGMENT_SIZE), GFP_KERNEL);
 
@@ -1627,7 +1610,7 @@ static void wcnss_nvbin_dnld(void)
 		dnld_req_msg->dnld_req_params.frag_number = count;
 
 		if (count == (total_fragments - 1)) {
-			/* last fragment, take care of boundry condition */
+			
 			cur_frag_size = nv_blob_size % NV_FRAGMENT_SIZE;
 			if (!cur_frag_size)
 				cur_frag_size = NV_FRAGMENT_SIZE;
@@ -1648,7 +1631,7 @@ static void wcnss_nvbin_dnld(void)
 		dnld_req_msg->hdr.msg_len =
 			sizeof(struct nvbin_dnld_req_msg) + cur_frag_size;
 
-		/* copy NV fragment */
+		
 		memcpy((outbuffer + sizeof(struct nvbin_dnld_req_msg)),
 			(nv_blob_addr + count * NV_FRAGMENT_SIZE),
 			cur_frag_size);
@@ -1663,7 +1646,7 @@ static void wcnss_nvbin_dnld(void)
 				count, dnld_req_msg->hdr.msg_len,
 				total_fragments, retry_count);
 
-			/* wait and try again */
+			
 			msleep(20);
 			retry_count++;
 			ret = wcnss_smd_tx(outbuffer,
@@ -1680,11 +1663,11 @@ static void wcnss_nvbin_dnld(void)
 	}
 
 err_dnld:
-	/* free buffer */
+	
 	kfree(outbuffer);
 
 err_free_nv:
-	/* release firmware */
+	
 	release_firmware(nv);
 
 out:
@@ -1760,7 +1743,7 @@ static void wcnss_caldata_dnld(const void *cal_data,
 				count, cal_msg->hdr.msg_len,
 				total_fragments, retry_count);
 
-			/* wait and try again */
+			
 			msleep(20);
 			retry_count++;
 			ret = wcnss_smd_tx(outbuffer,
@@ -1778,7 +1761,7 @@ static void wcnss_caldata_dnld(const void *cal_data,
 
 
 err_dnld:
-	/* free buffer */
+	
 	kfree(outbuffer);
 
 	return;
@@ -1924,12 +1907,12 @@ wcnss_trigger_config(struct platform_device *pdev)
 		penv->wlan_rx_buff_count = WCNSS_DEF_WLAN_RX_BUFF_COUNT;
 	}
 
-	/* make sure we are only triggered once */
+	
 	if (penv->triggered)
 		return 0;
 	penv->triggered = 1;
 
-	/* initialize the WCNSS device configuration */
+	
 	pdata = pdev->dev.platform_data;
 	if (WCNSS_CONFIG_UNSPECIFIED == has_48mhz_xo) {
 		if (has_pronto_hw) {
@@ -1950,12 +1933,12 @@ wcnss_trigger_config(struct platform_device *pdev)
 	penv->thermal_mitigation = 0;
 	strlcpy(penv->wcnss_version, "INVALID", WCNSS_VERSION_LEN);
 
-	/* Configure 5 wire GPIOs */
+	
 	if (!has_pronto_hw) {
 		penv->gpios_5wire = platform_get_resource_byname(pdev,
 					IORESOURCE_IO, "wcnss_gpios_5wire");
 
-		/* allocate 5-wire GPIO resources */
+		
 		if (!penv->gpios_5wire) {
 			dev_err(&pdev->dev, "insufficient IO resources\n");
 			ret = -ENOENT;
@@ -1970,7 +1953,7 @@ wcnss_trigger_config(struct platform_device *pdev)
 		goto fail_gpio_res;
 	}
 
-	/* power up the WCNSS */
+	
 	ret = wcnss_wlan_power(&pdev->dev, &penv->wlan_config,
 					WCNSS_WLAN_SWITCH_ON,
 					&penv->iris_xo_mode_set);
@@ -1979,7 +1962,7 @@ wcnss_trigger_config(struct platform_device *pdev)
 		goto fail_power;
 	}
 
-	/* allocate resources */
+	
 	penv->mmio_res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
 							"wcnss_mmio");
 	penv->tx_irq_res = platform_get_resource_byname(pdev, IORESOURCE_IRQ,
@@ -1997,7 +1980,7 @@ wcnss_trigger_config(struct platform_device *pdev)
 	INIT_WORK(&penv->wcnssctrl_nvbin_dnld_work, wcnss_nvbin_dnld_main);
 
 	wake_lock_init(&penv->wcnss_wake_lock, WAKE_LOCK_SUSPEND, "wcnss");
-
+	wcnss_prevent_suspend();
 	if (wcnss_hardware_type() == WCNSS_PRONTO_HW) {
 		size = 0x3000;
 		wcnss_phys_addr = MSM_PRONTO_PHYS;
@@ -2033,7 +2016,7 @@ wcnss_trigger_config(struct platform_device *pdev)
 			pr_err("%s: ioremap wcnss physical failed\n", __func__);
 			goto fail_ioremap3;
 		}
-		/* for reset FIQ */
+		
 		res = platform_get_resource_byname(penv->pdev,
 				IORESOURCE_MEM, "wcnss_fiq");
 		if (!res) {
@@ -2095,7 +2078,7 @@ wcnss_trigger_config(struct platform_device *pdev)
 		penv->fw_vbatt_state = WCNSS_CONFIG_UNSPECIFIED;
 	}
 
-	/* trigger initialization of the WCNSS */
+	
 	penv->pil = subsystem_get(WCNSS_PIL_DEVICE);
 	if (IS_ERR(penv->pil)) {
 		dev_err(&pdev->dev, "Peripheral Loader failed on WCNSS.\n");
@@ -2137,6 +2120,7 @@ fail_ioremap2:
 	if (penv->msm_wcnss_base)
 		iounmap(penv->msm_wcnss_base);
 fail_ioremap:
+	wcnss_allow_suspend();
 	wake_lock_destroy(&penv->wcnss_wake_lock);
 fail_res:
 	wcnss_wlan_power(&pdev->dev, &penv->wlan_config,
@@ -2215,7 +2199,6 @@ exit:
 	return rc;
 }
 
-/* first (valid) write to this device should be 4 bytes cal file size */
 static ssize_t wcnss_wlan_write(struct file *fp, const char __user
 			*user_buffer, size_t count, loff_t *position)
 {
@@ -2288,13 +2271,13 @@ wcnss_wlan_probe(struct platform_device *pdev)
 {
 	int ret = 0;
 
-	/* verify we haven't been called more than once */
+	
 	if (penv) {
 		dev_err(&pdev->dev, "cannot handle multiple devices.\n");
 		return -ENODEV;
 	}
 
-	/* create an environment to track the device */
+	
 	penv = devm_kzalloc(&pdev->dev, sizeof(*penv), GFP_KERNEL);
 	if (!penv) {
 		dev_err(&pdev->dev, "cannot allocate device memory.\n");
@@ -2302,7 +2285,7 @@ wcnss_wlan_probe(struct platform_device *pdev)
 	}
 	penv->pdev = pdev;
 
-	/* register sysfs entries */
+	
 	ret = wcnss_create_sysfs(&pdev->dev);
 	if (ret) {
 		penv = NULL;
@@ -2314,14 +2297,6 @@ wcnss_wlan_probe(struct platform_device *pdev)
 	mutex_init(&penv->vbat_monitor_mutex);
 	init_waitqueue_head(&penv->read_wait);
 
-	/* Since we were built into the kernel we'll be called as part
-	 * of kernel initialization.  We don't know if userspace
-	 * applications are available to service PIL at this time
-	 * (they probably are not), so we simply create a device node
-	 * here.  When userspace is available it should touch the
-	 * device so that we know that WCNSS configuration can take
-	 * place
-	 */
 	pr_info(DEVICE " probed in built-in mode\n");
 
 	misc_register(&wcnss_usr_ctrl);

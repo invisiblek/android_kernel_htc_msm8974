@@ -36,6 +36,8 @@ struct msm_actuator_func_tbl {
 			struct msm_actuator_move_params_t *);
 	int32_t (*actuator_move_focus) (struct msm_actuator_ctrl_t *,
 			struct msm_actuator_move_params_t *);
+	int32_t (*actuator_iaf_move_focus) (struct msm_actuator_ctrl_t *,
+			struct msm_actuator_move_params_t *);
 	void (*actuator_parse_i2c_params)(struct msm_actuator_ctrl_t *,
 			int16_t, uint32_t, uint16_t);
 	void (*actuator_write_focus)(struct msm_actuator_ctrl_t *,
@@ -43,12 +45,31 @@ struct msm_actuator_func_tbl {
 			struct damping_params_t *,
 			int8_t,
 			int16_t);
+	int32_t (*actuator_set_ois_mode) (struct msm_actuator_ctrl_t *, int);
+	int32_t (*actuator_update_ois_tbl) (struct msm_actuator_ctrl_t *, struct sensor_actuator_info_t *);
+};
+
+struct msm_actuator_ext {
+	int is_ois_supported;
+	int32_t ois_slave_id;
+	int small_step_damping;
+	int medium_step_damping;
+	int big_step_damping;
+	int is_af_infinity_supported;
+	struct msm_actuator **actuators;
 };
 
 struct msm_actuator {
 	enum actuator_type act_type;
 	struct msm_actuator_func_tbl func_tbl;
 };
+
+enum actuator_ois_state {
+	ACTUATOR_OIS_IDLE,
+	ACTUATOR_OIS_I2C_ADD_DRIVER,
+	ACTUATOR_OIS_OPEN_INIT,
+	ACTUATOR_OIS_POWER_DOWN,
+ };
 
 struct msm_actuator_ctrl_t {
 	struct i2c_driver *i2c_driver;
@@ -78,9 +99,39 @@ struct msm_actuator_ctrl_t {
 	uint16_t pwd_step;
 	uint16_t initial_code;
 	struct msm_camera_i2c_reg_array *i2c_reg_tbl;
+	struct msm_actuator_af_OTP_info_t af_OTP_info;
+	struct msm_camera_i2c_seq_reg_setting i2c_seq_reg_setting;
+	int32_t ois_slave_id;
+	int is_ois_supported;
+	enum actuator_ois_state ois_state;
+	int16_t prev_ois_mode;
+	void (*oisbinder_i2c_add_driver) (struct msm_camera_i2c_client*);
+	void (*oisbinder_open_init) (void);
+	void (*oisbinder_power_down) (void);
+	int32_t (*oisbinder_act_set_ois_mode) (int);
+	int32_t (*oisbinder_mappingTbl_i2c_write) (int, struct sensor_actuator_info_t *);
+	int small_step_damping;
+	int medium_step_damping;
+	int big_step_damping;
+	int is_af_infinity_supported;
 	uint16_t i2c_tbl_index;
 	enum cci_i2c_master_t cci_master;
 	uint32_t subdev_id;
+	
+	enum actuator_I2C_func_select act_i2c_select;
+	
 };
+
+int32_t msm_actuator_set_default_focus(struct msm_actuator_ctrl_t *a_ctrl,
+	struct msm_actuator_move_params_t *move_params);
+int32_t msm_actuator_init_focus(struct msm_actuator_ctrl_t *a_ctrl,
+	uint16_t size, enum msm_actuator_data_type type,
+	struct reg_settings_t *settings);
+int32_t msm_actuator_piezo_set_default_focus(struct msm_actuator_ctrl_t *a_ctrl,
+	struct msm_actuator_move_params_t *move_params);
+int32_t msm_actuator_piezo_move_focus(struct msm_actuator_ctrl_t *a_ctrl,
+	struct msm_actuator_move_params_t *move_params);
+int32_t msm_actuator_set_ois_mode(struct msm_actuator_ctrl_t *a_ctrl, int ois_mode);
+int32_t msm_actuator_update_ois_tbl(struct msm_actuator_ctrl_t *a_ctrl, struct sensor_actuator_info_t * sensor_actuator_info);
 
 #endif

@@ -31,6 +31,8 @@
 #include <media/v4l2-subdev.h>
 #include "msm_camera_i2c.h"
 #include "msm_sd.h"
+#include "../yushanII/ilp0100_ST_definitions.h"
+#include <media/linux_yushanii.h>
 
 #define DEFINE_MSM_MUTEX(mutexname) \
 	static struct mutex mutexname = __MUTEX_INITIALIZER(mutexname)
@@ -48,6 +50,10 @@ struct msm_sensor_fn_t {
 		(struct msm_sensor_ctrl_t *);
 	int (*sensor_power_up) (struct msm_sensor_ctrl_t *);
 	int32_t (*sensor_match_id)(struct msm_sensor_ctrl_t *s_ctrl);
+    void (*sensor_yushanII_set_IQ)(struct msm_sensor_ctrl_t *sensor,int*,int*,int*,struct yushanii_cls*);
+	int (*sensor_i2c_read_fuseid)(struct sensorb_cfg_data *cdata, struct msm_sensor_ctrl_t *s_ctrl); 
+    void (*sensor_yushanII_restart_stream)(void);
+    void (*sensor_yushanII_stop_restart_stream)(void);
 };
 
 struct msm_sensor_ctrl_t {
@@ -73,6 +79,8 @@ struct msm_sensor_ctrl_t {
 	uint16_t clk_info_size;
 	void *misc_regulator;
 	enum msm_sensor_state_t sensor_state;
+	uint8_t driver_ic; 
+
 };
 
 int32_t msm_sensor_config(struct msm_sensor_ctrl_t *s_ctrl,
@@ -91,6 +99,11 @@ int32_t msm_sensor_i2c_probe(struct i2c_client *client,
 	const struct i2c_device_id *id, struct msm_sensor_ctrl_t *s_ctrl);
 
 int32_t msm_sensor_free_sensor_data(struct msm_sensor_ctrl_t *s_ctrl);
+
+struct file* msm_fopen(const char* path, int flags, int rights);
+int msm_fwrite(struct file* file, unsigned long long offset, unsigned char* data, unsigned int size);
+void msm_fclose(struct file* file);
+void msm_dump_otp_to_file(const char* sensor_name, const short* add, const uint8_t* data, size_t count);
 
 int32_t msm_sensor_get_dt_gpio_req_tbl(struct device_node *of_node,
 	struct msm_camera_gpio_conf *gconf, uint16_t *gpio_array,

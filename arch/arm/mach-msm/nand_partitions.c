@@ -37,9 +37,8 @@
 #include <mach/msm_smem.h>
 #endif
 
-/* configuration tags specific to msm */
 
-#define ATAG_MSM_PARTITION 0x4d534D70 /* MSMp */
+#define ATAG_MSM_PARTITION 0x4d534D70 
 
 struct msm_ptbl_entry {
 	char name[16];
@@ -54,6 +53,17 @@ static struct mtd_partition msm_nand_partitions[MSM_MAX_PARTITIONS];
 static char msm_nand_names[MSM_MAX_PARTITIONS * 16];
 
 extern struct flash_platform_data msm_nand_data;
+
+int get_partition_num_by_name(char *name)
+{
+	struct mtd_partition *ptn = msm_nand_partitions;
+	int i;
+
+	for (i = 0; i < MSM_MAX_PARTITIONS && ptn->name; i++, ptn++) {
+		  if (strcmp(ptn->name, name) == 0)
+			  return ptn->offset;
+	}
+}
 
 static int __init parse_tag_msm_partition(const struct tag *tag)
 {
@@ -101,12 +111,12 @@ __tagtable(ATAG_MSM_PARTITION, parse_tag_msm_partition);
 
 struct flash_partition_entry {
 	char name[16];
-	u32 offset;	/* Offset in blocks from beginning of device */
-	u32 length;	/* Length of the partition in blocks */
+	u32 offset;	
+	u32 length;	
 	u8 attrib1;
 	u8 attrib2;
 	u8 attrib3;
-	u8 which_flash;	/* Numeric ID (first = 0, second = 1) */
+	u8 which_flash;	
 };
 struct flash_partition_table {
 	u32 magic1;
@@ -151,21 +161,18 @@ static int get_nand_partitions(void)
 
 	msm_nand_data.nr_parts = 0;
 
-	/* Get the LINUX FS partition info */
+	
 	for (part = 0; part < partition_table->numparts; part++) {
 		part_entry = &partition_table->part_entry[part];
 
-		/* Find a match for the Linux file system partition */
+		
 		if (strcmp(part_entry->name, LINUX_FS_PARTITION_NAME) == 0) {
 			strcpy(name, part_entry->name);
 			ptn->name = name;
 
-			/*TODO: Get block count and size info */
+			
 			ptn->offset = part_entry->offset;
 
-			/* For SMEM, -1 indicates remaining space in flash,
-			 * but for MTD it is 0
-			 */
 			if (part_entry->length == (u32)-1)
 				ptn->size = 0;
 			else

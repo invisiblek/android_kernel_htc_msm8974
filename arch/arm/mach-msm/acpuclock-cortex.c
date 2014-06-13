@@ -34,6 +34,10 @@
 #include <mach/clk-provider.h>
 #include <mach/rpm-regulator-smd.h>
 
+#ifdef CONFIG_HTC_DEBUG_FOOTPRINT
+#include <mach/htc_footprint.h>
+#endif
+
 #include "acpuclock.h"
 #include "acpuclock-cortex.h"
 
@@ -43,7 +47,6 @@
 static struct acpuclk_drv_data *priv;
 static uint32_t bus_perf_client;
 
-/* Update the bus bandwidth request. */
 static void set_bus_bw(unsigned int bw)
 {
 	int ret;
@@ -53,7 +56,7 @@ static void set_bus_bw(unsigned int bw)
 		return;
 	}
 
-	/* Update bandwidth if request has changed. This may sleep. */
+	
 	ret = msm_bus_scale_client_update_request(bus_perf_client, bw);
 	if (ret)
 		pr_err("bandwidth request failed (%d)\n", ret);
@@ -61,16 +64,11 @@ static void set_bus_bw(unsigned int bw)
 	return;
 }
 
-/* Apply any voltage increases. */
 static int increase_vdd(unsigned int vdd_cpu, unsigned int vdd_mem)
 {
 	int rc = 0;
 
 	if (priv->vdd_mem) {
-		/*
-		 * Increase vdd_mem before vdd_cpu. vdd_mem should
-		 * be >= vdd_cpu.
-		 */
 		rc = regulator_set_voltage(priv->vdd_mem, vdd_mem,
 						priv->vdd_max_mem);
 		if (rc) {
@@ -86,12 +84,11 @@ static int increase_vdd(unsigned int vdd_cpu, unsigned int vdd_mem)
 	return rc;
 }
 
-/* Apply any per-cpu voltage decreases. */
 static void decrease_vdd(unsigned int vdd_cpu, unsigned int vdd_mem)
 {
 	int ret;
 
-	/* Update CPU voltage. */
+	
 	ret = regulator_set_voltage(priv->vdd_cpu, vdd_cpu, priv->vdd_max_cpu);
 	if (ret) {
 		pr_err("vdd_cpu decrease failed (%d)\n", ret);
@@ -101,7 +98,7 @@ static void decrease_vdd(unsigned int vdd_cpu, unsigned int vdd_mem)
 	if (!priv->vdd_mem)
 		return;
 
-	/* Decrease vdd_mem after vdd_cpu. vdd_mem should be >= vdd_cpu. */
+	
 	ret = regulator_set_voltage(priv->vdd_mem, vdd_mem, priv->vdd_max_mem);
 	if (ret)
 		pr_err("vdd_mem decrease failed (%d)\n", ret);
@@ -124,12 +121,12 @@ static void select_clk_source_div(struct acpuclk_drv_data *drv_data,
 	regval |= src_div << r->cfg_div_shift;
 	writel_relaxed(regval, apcs_rcg_config);
 
-	/* Update the configuration */
+	
 	regval = readl_relaxed(apcs_rcg_cmd);
 	regval |= r->update_mask;
 	writel_relaxed(regval, apcs_rcg_cmd);
 
-	/* Wait for the update to take effect */
+	
 	rc = readl_poll_timeout_noirq(apcs_rcg_cmd, regval,
 		   !(regval & r->poll_mask),
 		   POLL_INTERVAL_US,
@@ -153,7 +150,7 @@ static struct clkctl_acpu_speed *__init find_cur_cpu_level(void)
 
 	div = regval & r->cfg_div_mask;
 	div >>= r->cfg_div_shift;
-	/* No support for half-integer dividers */
+	
 	div = div > 1 ? (div + 1) / 2 : 0;
 
 	for (f = priv->freq_tbl; f->khz; f++) {
@@ -175,9 +172,9 @@ static struct clkctl_acpu_speed *__init find_cur_cpu_level(void)
 	pr_err("CPUs are running at an unknown rate. Defaulting to %u KHz.\n",
 		max->khz);
 
-	/* Change to a safe frequency */
+	
 	select_clk_source_div(priv, priv->freq_tbl);
-	/* Default to largest frequency */
+	
 	return max;
 }
 
@@ -211,10 +208,10 @@ static int set_speed(struct clkctl_acpu_speed *tgt_s)
 	struct clk *tgt = priv->src_clocks[tgt_s->src].clk;
 
 	if (strt_s->src == ACPUPLL && tgt_s->src == ACPUPLL) {
-		/* Switch to another always on src */
+		
 		select_clk_source_div(priv, cxo_s);
 
-		/* Re-program acpu pll */
+		
 		clk_disable_unprepare(tgt);
 
 		rc = clk_set_rate(tgt, tgt_freq_hz);
@@ -223,7 +220,7 @@ static int set_speed(struct clkctl_acpu_speed *tgt_s)
 
 		BUG_ON(clk_prepare_enable(tgt));
 
-		/* Switch back to acpu pll */
+		
 		select_clk_source_div(priv, tgt_s);
 
 	} else if (strt_s->src != ACPUPLL && tgt_s->src == ACPUPLL) {
@@ -268,16 +265,24 @@ static int acpuclk_cortex_set_rate(int cpu, unsigned long rate,
 	struct clkctl_acpu_speed *tgt_s, *strt_s;
 	int rc = 0;
 
+#ifdef CONFIG_HTC_DEBUG_FOOTPRINT
+	set_acpuclk_footprint(cpu, 0x1);
+#endif
+
 	if (reason == SETRATE_CPUFREQ)
 		mutex_lock(&priv->lock);
 
+#ifdef CONFIG_HTC_DEBUG_FOOTPRINT
+	set_acpuclk_footprint(cpu, 0x2);
+#endif
+
 	strt_s = priv->current_speed;
 
-	/* Return early if rate didn't change */
+	
 	if (rate == strt_s->khz && reason != SETRATE_INIT)
 		goto out;
 
-	/* Find target frequency */
+	
 	for (tgt_s = priv->freq_tbl; tgt_s->khz != 0; tgt_s++)
 		if (tgt_s->khz == rate)
 			break;
@@ -286,10 +291,17 @@ static int acpuclk_cortex_set_rate(int cpu, unsigned long rate,
 		goto out;
 	}
 
-	/* Increase VDD levels if needed */
+#ifdef CONFIG_HTC_DEBUG_FOOTPRINT
+	set_acpuclk_footprint(cpu, 0x3);
+#endif
+
+	
 	if ((reason == SETRATE_CPUFREQ)
 			&& (tgt_s->khz > strt_s->khz)) {
 		rc = increase_vdd(tgt_s->vdd_cpu, tgt_s->vdd_mem);
+#ifdef CONFIG_HTC_DEBUG_FOOTPRINT
+	set_acpuclk_footprint(cpu, 0x4);
+#endif
 		if (rc)
 			goto out;
 	}
@@ -297,7 +309,11 @@ static int acpuclk_cortex_set_rate(int cpu, unsigned long rate,
 	pr_debug("Switching from CPU rate %u KHz -> %u KHz\n",
 		strt_s->khz, tgt_s->khz);
 
-	/* Switch CPU speed. Flag indicates atomic context */
+#ifdef CONFIG_HTC_DEBUG_FOOTPRINT
+	set_acpuclk_footprint(cpu, 0x6);
+#endif
+
+	
 	if (reason == SETRATE_CPUFREQ || reason == SETRATE_INIT)
 		rc = set_speed(tgt_s);
 	else
@@ -309,20 +325,37 @@ static int acpuclk_cortex_set_rate(int cpu, unsigned long rate,
 	priv->current_speed = tgt_s;
 	pr_debug("CPU speed change complete\n");
 
-	/* Nothing else to do for SWFI or power-collapse. */
+#ifdef CONFIG_HTC_DEBUG_FOOTPRINT
+	set_acpuclk_cpu_freq_footprint(FT_CUR_RATE, cpu, tgt_s->khz);
+	set_acpuclk_footprint(cpu, 0x7);
+#endif
+
+	
 	if (reason == SETRATE_SWFI || reason == SETRATE_PC)
 		goto out;
 
-	/* Update bus bandwith request */
+	
 	set_bus_bw(tgt_s->bw_level);
 
-	/* Drop VDD levels if we can. */
+#ifdef CONFIG_HTC_DEBUG_FOOTPRINT
+	set_acpuclk_footprint(cpu, 0x9);
+#endif
+
+	
 	if (tgt_s->khz < strt_s->khz || reason == SETRATE_INIT)
 		decrease_vdd(tgt_s->vdd_cpu, tgt_s->vdd_mem);
+
+#ifdef CONFIG_HTC_DEBUG_FOOTPRINT
+	set_acpuclk_footprint(cpu, 0xa);
+#endif
 
 out:
 	if (reason == SETRATE_CPUFREQ)
 		mutex_unlock(&priv->lock);
+#ifdef CONFIG_HTC_DEBUG_FOOTPRINT
+	set_acpuclk_footprint(cpu, 0xb);
+#endif
+
 	return rc;
 }
 
@@ -338,7 +371,7 @@ static void __init cpufreq_table_init(void)
 {
 	int i, freq_cnt = 0;
 
-	/* Construct the freq_table tables from priv->freq_tbl. */
+	
 	for (i = 0; priv->freq_tbl[i].khz != 0
 			&& freq_cnt < ARRAY_SIZE(freq_table) - 1; i++) {
 		if (!priv->freq_tbl[i].use_for_scaling)
@@ -347,7 +380,7 @@ static void __init cpufreq_table_init(void)
 		freq_table[freq_cnt].frequency = priv->freq_tbl[i].khz;
 		freq_cnt++;
 	}
-	/* freq_table not big enough to store all usable freqs. */
+	
 	BUG_ON(priv->freq_tbl[i].khz != 0);
 
 	freq_table[freq_cnt].index = freq_cnt;
@@ -355,7 +388,7 @@ static void __init cpufreq_table_init(void)
 
 	pr_info("CPU: %d scaling frequencies supported.\n", freq_cnt);
 
-	/* Register table with CPUFreq. */
+	
 	for_each_possible_cpu(i)
 		cpufreq_frequency_table_get_attr(freq_table, i);
 }
@@ -426,7 +459,7 @@ int __init acpuclk_cortex_init(struct platform_device *pdev,
 		BUG();
 	}
 
-	/* Initialize regulators */
+	
 	rc = increase_vdd(priv->vdd_max_cpu, priv->vdd_max_mem);
 	if (rc)
 		return rc;

@@ -309,6 +309,11 @@ struct mdss_panel_info {
 	struct fbc_panel_info fbc;
 	struct mipi_panel_info mipi;
 	struct lvds_panel_info lvds;
+
+#ifdef CONFIG_MACH_M8
+	int panel_id;
+	int first_power_on;
+#endif
 };
 
 struct mdss_panel_data {

@@ -43,49 +43,49 @@ struct acdb_data {
 
 	struct mutex		acdb_mutex;
 
-	/* ANC Cal */
+	
 	struct acdb_cal_block		anc_cal;
 
-	/* AANC Cal */
+	
 	struct acdb_cal_block		aanc_cal;
 
-	/* LSM Cal */
+	
 	struct acdb_cal_block		lsm_cal;
 
-	/* AudProc Cal */
-	uint32_t			asm_topology;
+	
+	atomic_t			asm_topology[SESSION_MAX];
 	uint32_t			adm_topology[MAX_AUDPROC_TYPES];
 	struct acdb_cal_block		audproc_cal[MAX_AUDPROC_TYPES];
 	struct acdb_cal_block		audstrm_cal[MAX_AUDPROC_TYPES];
 	struct acdb_cal_block		audvol_cal[MAX_AUDPROC_TYPES];
 
-	/* VocProc Cal */
+	
 	uint32_t			voice_rx_topology;
 	uint32_t			voice_tx_topology;
 	struct acdb_cal_block		vocproc_cal;
 	struct acdb_cal_block		vocstrm_cal;
 	struct acdb_cal_block		vocvol_cal;
 
-	/* Voice Column data */
+	
 	struct acdb_cal_block		vocproc_col_cal[MAX_VOCPROC_TYPES];
 	uint32_t			*col_data[MAX_VOCPROC_TYPES];
 
-	/* VocProc dev cfg cal*/
+	
 	struct acdb_cal_block		vocproc_dev_cal;
 
-	/* Custom topology */
+	
 	struct acdb_cal_block		adm_custom_topology;
 	struct acdb_cal_block		asm_custom_topology;
 	uint32_t			valid_adm_custom_top;
 	uint32_t			valid_asm_custom_top;
 
-	/* AFE cal */
+	
 	struct acdb_cal_block		afe_cal[MAX_AUDPROC_TYPES];
 
-	/* Sidetone Cal */
+	
 	struct sidetone_cal		sidetone_cal;
 
-	/* Allocation information */
+	
 	struct ion_client		*ion_client;
 	struct ion_handle		*ion_handle;
 	uint32_t			map_handle;
@@ -93,10 +93,10 @@ struct acdb_data {
 	uint64_t			kvaddr;
 	uint64_t			mem_len;
 
-	/* Speaker protection */
+	
 	struct msm_spk_prot_cfg spk_prot_cfg;
 
-	/* Av sync delay info */
+	
 	struct hw_delay hw_delay_rx;
 	struct hw_delay hw_delay_tx;
 };
@@ -143,14 +143,18 @@ void store_adm_tx_topology(uint32_t topology)
 	acdb_data.adm_topology[TX_CAL] = topology;
 }
 
-uint32_t get_asm_topology(void)
+uint32_t get_asm_topology(uint32_t session)
 {
-	return acdb_data.asm_topology;
+	if(session < SESSION_MAX)
+		return atomic_read(&acdb_data.asm_topology[session]);
+	else
+		return 0;
 }
 
-void store_asm_topology(uint32_t topology)
+void store_asm_topology(uint32_t topology,uint32_t session)
 {
-	acdb_data.asm_topology = topology;
+	if(session < SESSION_MAX)
+		atomic_set(&acdb_data.asm_topology[session], topology);
 }
 
 void reset_custom_topology_flags(void)
@@ -173,7 +177,7 @@ int get_adm_custom_topology(struct acdb_cal_block *cal_block)
 	}
 
 	mutex_lock(&acdb_data.acdb_mutex);
-	/* Only return allow one access after memory registered */
+	
 	if (acdb_data.valid_adm_custom_top == 0) {
 		cal_block->cal_size = 0;
 		goto unlock;
@@ -222,7 +226,7 @@ int get_asm_custom_topology(struct acdb_cal_block *cal_block)
 	}
 
 	mutex_lock(&acdb_data.acdb_mutex);
-	/* Only return allow one access after memory registered */
+	
 	if (acdb_data.valid_asm_custom_top == 0) {
 		cal_block->cal_size = 0;
 		goto unlock;
@@ -992,7 +996,7 @@ static int get_spk_protection_status(struct msm_spk_prot_status *status)
 	struct afe_spkr_prot_get_vi_calib	calib_resp;
 	pr_debug("%s,\n", __func__);
 
-	/*Call AFE function here to query the status*/
+	
 	if (status) {
 		status->status = -EINVAL;
 		if (!afe_spk_prot_get_calib_data(&calib_resp)) {
@@ -1072,7 +1076,7 @@ static int allocate_hw_delay_entries(void)
 {
 	int	result = 0;
 
-	/* Allocate memory for hw delay entries */
+	
 	acdb_data.hw_delay_rx.num_entries = 0;
 	acdb_data.hw_delay_tx.num_entries = 0;
 	acdb_data.hw_delay_rx.delay_info =
@@ -1186,7 +1190,7 @@ static int deregister_memory(void)
 	pr_debug("Remove existing memory\n");
 	acdb_data.mem_len = 0;
 
-	/* unmap all cal data */
+	
 	result = unmap_cal_tables();
 	if (result < 0)
 		pr_err("%s: unmap_cal_tables failed, err = %d\n",
@@ -1326,7 +1330,12 @@ static long acdb_ioctl(struct file *f,
 			pr_err("%s: fail to copy topology!\n", __func__);
 			result = -EFAULT;
 		}
-		store_asm_topology(topology);
+		{
+			int i;
+			for(i=0; i<SESSION_MAX; i++)
+				store_asm_topology(topology,i);
+		}
+
 		goto done;
 	case AUDIO_SET_SPEAKER_PROT:
 		if (copy_from_user(&acdb_data.spk_prot_cfg, (void *)arg,
@@ -1336,13 +1345,13 @@ static long acdb_ioctl(struct file *f,
 		}
 		goto done;
 	case AUDIO_GET_SPEAKER_PROT:
-		/*Indicates calibration was succesfull*/
+		
 		if (acdb_data.spk_prot_cfg.mode == MSM_SPKR_PROT_CALIBRATED) {
 			prot_status.r0 = acdb_data.spk_prot_cfg.r0;
 			prot_status.status = 0;
 		} else if (acdb_data.spk_prot_cfg.mode ==
 				   MSM_SPKR_PROT_CALIBRATION_IN_PROGRESS) {
-			/*Call AFE to query the status*/
+			
 			acdb_spk_status.status = -EINVAL;
 			acdb_spk_status.r0 = -1;
 			get_spk_protection_status(&acdb_spk_status);
@@ -1354,7 +1363,7 @@ static long acdb_ioctl(struct file *f,
 				acdb_data.spk_prot_cfg.r0 = prot_status.r0;
 			}
 		} else {
-			/*Indicates calibration data is invalid*/
+			
 			prot_status.status = -EINVAL;
 			prot_status.r0 = -1;
 		}
@@ -1556,7 +1565,7 @@ struct miscdevice acdb_misc = {
 static int __init acdb_init(void)
 {
 	memset(&acdb_data, 0, sizeof(acdb_data));
-	/*Speaker protection disabled*/
+	
 	acdb_data.spk_prot_cfg.mode = MSM_SPKR_PROT_DISABLED;
 	mutex_init(&acdb_data.acdb_mutex);
 	acdb_data.usage_count = 0;

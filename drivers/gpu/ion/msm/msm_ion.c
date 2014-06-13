@@ -104,6 +104,11 @@ static struct ion_heap_desc ion_heap_meta[] = {
 	{
 		.id	= ION_ADSP_HEAP_ID,
 		.name	= ION_ADSP_HEAP_NAME,
+	},
+	{
+		.id	= ION_FBMEM_HEAP_ID,
+		.type	= ION_HEAP_TYPE_CARVEOUT,
+		.name	= ION_FBMEM_HEAP_NAME,
 	}
 };
 #endif
@@ -111,10 +116,6 @@ static struct ion_heap_desc ion_heap_meta[] = {
 struct ion_client *msm_ion_client_create(unsigned int heap_mask,
 					const char *name)
 {
-	/*
-	 * The assumption is that if there is a NULL device, the ion
-	 * driver has not yet probed.
-	 */
 	if (idev == NULL)
 		return ERR_PTR(-EPROBE_DEFER);
 
@@ -172,6 +173,43 @@ int msm_ion_do_cache_op(struct ion_client *client, struct ion_handle *handle,
 }
 EXPORT_SYMBOL(msm_ion_do_cache_op);
 
+static atomic_t ion_alloc_mem_usages[ION_USAGE_MAX]
+			= {[0 ... ION_USAGE_MAX-1] = ATOMIC_INIT(0)};
+
+static inline atomic_t* ion_get_meminfo(const enum ion_heap_mem_usage usage)
+{
+	return (usage < ION_USAGE_MAX) ?
+			&ion_alloc_mem_usages[usage] : NULL;
+}
+
+void ion_alloc_inc_usage(const enum ion_heap_mem_usage usage,
+			 const size_t size)
+{
+	atomic_t * const ion_alloc_usage = ion_get_meminfo(usage);
+
+	if (ion_alloc_usage)
+		atomic_add(size, ion_alloc_usage);
+}
+EXPORT_SYMBOL(ion_alloc_inc_usage);
+
+void ion_alloc_dec_usage(const enum ion_heap_mem_usage usage,
+			 const size_t size)
+{
+	atomic_t * const ion_alloc_usage = ion_get_meminfo(usage);
+
+	if (ion_alloc_usage)
+		atomic_sub(size, ion_alloc_usage);
+}
+EXPORT_SYMBOL(ion_alloc_dec_usage);
+
+uintptr_t msm_ion_heap_meminfo(const bool is_total)
+{
+	atomic_t * const ion_alloc_usage = ion_get_meminfo(
+						is_total? ION_TOTAL : ION_IN_USE);
+	return ion_alloc_usage? atomic_read(ion_alloc_usage) * PAGE_SIZE : 0;
+}
+EXPORT_SYMBOL(msm_ion_heap_meminfo);
+
 static int ion_no_pages_cache_ops(struct ion_client *client,
 			struct ion_handle *handle,
 			void *vaddr,
@@ -193,10 +231,6 @@ static int ion_no_pages_cache_ops(struct ion_client *client,
 	buff_phys = buff_phys_start;
 
 	if (!vaddr) {
-		/*
-		 * Split the vmalloc space into smaller regions in
-		 * order to clean and/or invalidate the cache.
-		 */
 		size_to_vmap = ((VMALLOC_END - VMALLOC_START)/8);
 		total_size = buf_length;
 
@@ -277,10 +311,6 @@ static void ion_pages_outer_cache_op(void (*op)(phys_addr_t, phys_addr_t),
 	for_each_sg(table->sgl, sg, table->nents, i) {
 		struct page *page = sg_page(sg);
 		pstart = page_to_phys(page);
-		/*
-		 * If page -> phys is returning NULL, something
-		 * has really gone wrong...
-		 */
 		if (!pstart) {
 			WARN(1, "Could not translate virtual address to physical address\n");
 			return;
@@ -459,15 +489,6 @@ static void allocate_co_memory(struct ion_platform_heap *heap,
 	}
 }
 
-/* Fixup heaps in board file to support two heaps being adjacent to each other.
- * A flag (adjacent_mem_id) in the platform data tells us that the heap phy
- * memory location must be adjacent to the specified heap. We do this by
- * carving out memory for both heaps and then splitting up the memory to the
- * two heaps. The heap specifying the "adjacent_mem_id" get the base of the
- * memory while heap specified in "adjacent_mem_id" get base+size as its
- * base address.
- * Note: Modifies platform data and allocates memory.
- */
 static void msm_ion_heap_fixup(struct ion_platform_heap heap_data[],
 			       unsigned int nr_heaps)
 {
@@ -668,7 +689,7 @@ static int msm_ion_populate_heap(struct device_node *node,
 		}
 	}
 	if (ret)
-		pr_err("%s: Unable to populate heap, error: %d", __func__, ret);
+		pr_err("%s: Unable to populate heap, error: %d\n", __func__, ret);
 	return ret;
 }
 
@@ -721,7 +742,7 @@ static void msm_ion_get_heap_align(struct device_node *node,
 static int msm_ion_get_heap_size(struct device_node *node,
 				 struct ion_platform_heap *heap)
 {
-	unsigned int val;
+	int val = 0;
 	int ret = 0;
 	u32 out_values[2];
 	const char *memory_name_prop;
@@ -778,7 +799,7 @@ out:
 	return ret;
 }
 
-static void msm_ion_get_heap_base(struct device_node *node,
+static int msm_ion_get_heap_base(struct device_node *node,
 				 struct ion_platform_heap *heap)
 {
 	u32 out_values[2];
@@ -790,13 +811,17 @@ static void msm_ion_get_heap_base(struct device_node *node,
 	if (!ret)
 		heap->base = out_values[0];
 
+	ret = 0;
 	pnode = of_parse_phandle(node, "linux,contiguous-region", 0);
 	if (pnode != NULL) {
-		heap->base = cma_get_base(heap->priv);
+		if (cma_area_exist(heap->priv))
+			heap->base = cma_get_base(heap->priv);
+		else
+			ret = -ENOMEM;
 		of_node_put(pnode);
 	}
 
-	return;
+	return ret;
 }
 
 static void msm_ion_get_heap_adjacent(struct device_node *node,
@@ -870,14 +895,9 @@ static struct ion_platform_data *msm_ion_parse_dt(struct platform_device *pdev)
 		}
 
 		pdata->heaps[idx].priv = &new_dev->dev;
-		/**
-		 * TODO: Replace this with of_get_address() when this patch
-		 * gets merged: http://
-		 * permalink.gmane.org/gmane.linux.drivers.devicetree/18614
-		*/
 		ret = of_property_read_u32(node, "reg", &val);
 		if (ret) {
-			pr_err("%s: Unable to find reg key", __func__);
+			pr_err("%s: Unable to find reg key\n", __func__);
 			goto free_heaps;
 		}
 		pdata->heaps[idx].id = val;
@@ -886,7 +906,11 @@ static struct ion_platform_data *msm_ion_parse_dt(struct platform_device *pdev)
 		if (ret)
 			goto free_heaps;
 
-		msm_ion_get_heap_base(node, &pdata->heaps[idx]);
+		ret = msm_ion_get_heap_base(node, &pdata->heaps[idx]);
+		if (ret) {
+			pr_err("%s: Unable to get valid base addr\n", __func__);
+			continue;
+		}
 		msm_ion_get_heap_align(node, &pdata->heaps[idx]);
 
 		ret = msm_ion_get_heap_size(node, &pdata->heaps[idx]);
@@ -897,6 +921,7 @@ static struct ion_platform_data *msm_ion_parse_dt(struct platform_device *pdev)
 
 		++idx;
 	}
+	pdata->nr = idx;
 	return pdata;
 
 free_heaps:
@@ -1113,6 +1138,11 @@ static int msm_ion_probe(struct platform_device *pdev)
 	int i;
 	if (pdev->dev.of_node) {
 		pdata = msm_ion_parse_dt(pdev);
+		if (pdata == NULL) {
+			pr_err("msm_ion_probe pdata was NULL, CONFIG_OF not define\n");
+			err = -EINVAL;
+			goto out;
+		}
 		if (IS_ERR(pdata)) {
 			err = PTR_ERR(pdata);
 			goto out;
@@ -1134,10 +1164,6 @@ static int msm_ion_probe(struct platform_device *pdev)
 
 	new_dev = ion_device_create(msm_ion_custom_ioctl);
 	if (IS_ERR_OR_NULL(new_dev)) {
-		/*
-		 * set this to the ERR to indicate to the clients
-		 * that Ion failed to probe.
-		 */
 		idev = new_dev;
 		err = PTR_ERR(new_dev);
 		goto freeheaps;
@@ -1145,7 +1171,7 @@ static int msm_ion_probe(struct platform_device *pdev)
 
 	msm_ion_heap_fixup(pdata->heaps, num_heaps);
 
-	/* create the heaps as specified in the board file */
+	
 	for (i = 0; i < num_heaps; i++) {
 		struct ion_platform_heap *heap_data = &pdata->heaps[i];
 		msm_ion_allocate(heap_data);
@@ -1173,10 +1199,6 @@ static int msm_ion_probe(struct platform_device *pdev)
 		free_pdata(pdata);
 
 	platform_set_drvdata(pdev, new_dev);
-	/*
-	 * intentionally set this at the very end to allow probes to be deferred
-	 * completely until Ion is setup
-	 */
 	idev = new_dev;
 	return 0;
 
