@@ -218,3 +218,6 @@ obj-$(CONFIG_SND_SOC_MSM_STUB)  += snd-soc-msm-stub.o
 # Amp
 obj-$(CONFIG_SND_SOC_MAX9877)	+= snd-soc-max9877.o
 obj-$(CONFIG_SND_SOC_TPA6130A2)	+= snd-soc-tpa6130a2.o
+
+snd-soc-tfa98xx-objs := tfa98xx.o  hal/src/NXP_I2C.o tfa/src/initTfa9890.o tfa/src/Tfa98xx.o
+obj-$(CONFIG_SND_SOC_TFA98XX)	+= snd-soc-tfa98xx.o
