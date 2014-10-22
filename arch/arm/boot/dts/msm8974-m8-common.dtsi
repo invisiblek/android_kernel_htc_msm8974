@@ -198,6 +198,7 @@
 			reg = <0x7C>;
 		};
 	};
+
 	gpio_event {
 		compatible = "key,gpio-event";
 		names = "device-keypad";
@@ -339,12 +340,12 @@
 	};
 
        i2c@f9928000 {
-               nxp_tfa9887_amp@34 {
-                       compatible = "nxp,tfa9887-amp";
+               tfa98xx_top@34 {
+                       compatible = "nxp,tfa98xx_top";
                        reg = <0x34>;
                };
-               nxp_tfa9887l_amp@35 {
-                       compatible = "nxp,tfa9887l-amp";
+               tfa98xx_bottom@35 {
+                       compatible = "nxp,tfa98xx_bottom";
                        reg = <0x35>;
                };
                richteck_rt5501_amp@52 {
@@ -356,6 +357,10 @@
 
        };
 
+	nxp,tfa98xx-codec {
+		compatible = "nxp,tfa98xx-codec";
+	};
+
 	qcom,msm-dai-mi2s {
 		qcom,msm-dai-q6-mi2s-quat {
 			compatible = "qcom,msm-dai-q6-mi2s";
@@ -364,6 +369,7 @@
 			qcom,msm-mi2s-tx-lines = <2>;
 		};
 	};
+
 /*Audio config end*/
 
 	qcom,pm8941@1 {

@@ -46,9 +46,9 @@ enum NXP_I2C_Error NXP_I2C_Write(unsigned char slave_address,
 		return NXP_I2C_UnsupportedValue;
 	}
 
-	if (slave_address == 0x68)
+	if (slave_address == 0x34)
 		client = top_client;
-	else if (slave_address == 0x6A)
+	else if (slave_address == 0x35)
 		client = bottom_client;
 	else {
 		pr_err("%s: Unknown slave address\n", __func__);
@@ -92,9 +92,9 @@ enum NXP_I2C_Error NXP_I2C_WriteRead(unsigned char slave_address,
 		return NXP_I2C_UnsupportedValue;
 	}
 
-	if (slave_address == 0x68)
+	if (slave_address == 0x34)
 		client = top_client;
-	else if (slave_address == 0x6A)
+	else if (slave_address == 0x35)
 		client = bottom_client;
 	else {
 		pr_err("%s: Unknown slave address\n", __func__);

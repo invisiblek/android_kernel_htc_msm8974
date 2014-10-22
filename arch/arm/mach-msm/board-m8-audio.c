@@ -357,7 +357,7 @@ static atomic_t sec_auxpcm_rsc_ref;
 static int msm8974_liquid_ext_spk_power_amp_init(void)
 {
 	int ret = 0;
-	return 0; 
+
 	ext_spk_amp_gpio = of_get_named_gpio(spdev->dev.of_node,
 		"qcom,ext-spk-amp-gpio", 0);
 	if (ext_spk_amp_gpio >= 0) {
@@ -2816,6 +2816,19 @@ static struct snd_soc_dai_link msm8974_common_dai_links[] = {
 		.init = &msm_htc_mi2s_init,
 		.be_id = MSM_BACKEND_DAI_QUATERNARY_MI2S_RX,
 		.be_hw_params_fixup = msm_be_mi2s_hw_params_fixup,
+		.ops = &msm8974_mi2s_be_ops,
+	},
+	/* MI2S Playback BACK END DAI Link */
+	{
+		.name = LPASS_BE_QUAT_MI2S_RX,
+		.stream_name = "Quaternary MI2S Playback",
+		.cpu_dai_name = "msm-dai-q6-mi2s.3",
+		.platform_name = "msm-pcm-routing",
+		.codec_name     = "tfa98xx-codec.1",
+		.codec_dai_name = "tfa98xx-rx",
+		.no_pcm = 1,
+		.be_id = MSM_BACKEND_DAI_QUATERNARY_MI2S_RX,
+		.be_hw_params_fixup = msm_be_hw_params_fixup,
 		.ops = &msm8974_mi2s_be_ops,
 	},
 	{

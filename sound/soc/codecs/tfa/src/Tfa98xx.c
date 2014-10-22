@@ -143,6 +143,8 @@ Tfa98xx_Open(unsigned char slave_address, Tfa98xx_handle_t *pHandle)
 			case 0x6A:
 			case 0x6C:
 			case 0x6E:
+			case 0x34:
+			case 0x35:
 				handlesLocal[i].in_use = 1;
 				handlesLocal[i].slave_address = slave_address;
 				handlesLocal[i].supportDrc = supportNotSet;

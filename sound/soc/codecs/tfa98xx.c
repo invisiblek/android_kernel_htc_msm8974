@@ -95,8 +95,8 @@ static const char *const speaker_synced_text[] = {"Unsynced", "Synced"};
 static const struct soc_enum speaker_synced_enum =
 	SOC_ENUM_SINGLE_EXT(2, speaker_synced_text);
 
-#define TOP_I2C_ADDRESS  0x68
-#define BOTTOM_I2C_ADDRESS  0x6A
+#define TOP_I2C_ADDRESS  0x34
+#define BOTTOM_I2C_ADDRESS  0x35
 #define SAMPLE_RATE 48000
 #define SPKR_CALIBRATION_EXTTS_VALUE 26
 
