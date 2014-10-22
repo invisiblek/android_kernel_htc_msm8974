@@ -31,6 +31,9 @@
 #include <sound/soc.h>
 #include <sound/soc-dpcm.h>
 #include <sound/initval.h>
+#ifdef CONFIG_SND_SOC_TFA98XX
+#include "codecs/tfa98xx_if.h"
+#endif
 
 /* ASoC no host IO hardware.
  * TODO: fine tune these values for all host less transfers.
@@ -1896,14 +1899,18 @@ int soc_dpcm_fe_dai_prepare(struct snd_pcm_substream *substream)
 	}
 
 	/* run the stream event for each BE */
-	if (stream == SNDRV_PCM_STREAM_PLAYBACK)
+	if (stream == SNDRV_PCM_STREAM_PLAYBACK) {
+#ifdef CONFIG_SND_SOC_TFA98XX
+		tfa98xx_speaker_amp_enable();
+#endif
 		dpcm_dapm_stream_event(fe, stream,
 				fe->cpu_dai->driver->playback.stream_name,
 				SND_SOC_DAPM_STREAM_START);
-	else
+	} else {
 		dpcm_dapm_stream_event(fe, stream,
 				fe->cpu_dai->driver->capture.stream_name,
 				SND_SOC_DAPM_STREAM_START);
+	}
 
 	fe->dpcm[stream].state = SND_SOC_DPCM_STATE_PREPARE;
 
@@ -2080,14 +2087,18 @@ static int dpcm_run_update_startup(struct snd_soc_pcm_runtime *fe, int stream)
 	}
 
 	
-	if (stream == SNDRV_PCM_STREAM_PLAYBACK)
+	if (stream == SNDRV_PCM_STREAM_PLAYBACK) {
+#ifdef CONFIG_SND_SOC_TFA98XX
+		tfa98xx_speaker_amp_enable();
+#endif
 		dpcm_dapm_stream_event(fe, stream,
 				fe->cpu_dai->driver->playback.stream_name,
 				SND_SOC_DAPM_STREAM_NOP);
-	else
+	} else {
 		dpcm_dapm_stream_event(fe, stream,
 				fe->cpu_dai->driver->capture.stream_name,
 				SND_SOC_DAPM_STREAM_NOP);
+	}
 
 	
 	if (fe->dpcm[stream].state == SND_SOC_DPCM_STATE_PREPARE ||
