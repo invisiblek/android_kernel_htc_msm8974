@@ -1,7 +1,7 @@
 /*
  * ROW (Read Over Write) I/O scheduler.
  *
- * Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -45,16 +45,17 @@ struct row_queue_params {
 	bool idling_enabled;
 	int quantum;
 	bool is_urgent;
+	unsigned int expire;
 };
 
 static const struct row_queue_params row_queues_def[] = {
-	{true, 10, true},	
-	{false, 1, false},	
-	{true, 100, true},	
-	{false, 1, false},	
-	{false, 1, false},	
-	{false, 1, false},	
-	{false, 1, false}	
+	{true, 10, true, 0},	
+	{false, 1, false, 0},	
+	{true, 100, true, 0},	
+	{false, 1, false, 3 * HZ},	
+	{false, 1, false, 3 * HZ},	
+	{false, 1, false, 0},	
+	{false, 1, false, 3 * HZ}	
 };
 
 #define ROW_IDLE_TIME_MSEC 5
@@ -77,6 +78,8 @@ struct row_queue {
 
 	
 	struct rowq_idling_data	idle_data;
+
+	unsigned int		dispatch_cnt;
 };
 
 struct idling_data {
@@ -110,6 +113,8 @@ struct row_data {
 	struct starvation_data		low_prio_starvation;
 
 	unsigned int			cycle_flags;
+
+	unsigned int			last_update_jiffies;
 };
 
 #define RQ_ROWQ(rq) ((struct row_queue *) ((rq)->elv.priv[0]))
@@ -148,6 +153,45 @@ static inline void __maybe_unused row_dump_queues_stat(struct row_data *rd)
 			"queue%d: dispatched= %d, nr_req=%d", i,
 			rd->row_queues[i].nr_dispatched,
 			rd->row_queues[i].nr_req);
+}
+
+#define ROW_DUMP_REQ_STAT_MSECS	    4500
+static inline void __maybe_unused row_dump_reg_and_low_stat(struct row_data *rd)
+{
+	int i;
+	unsigned int total_dispatch_cnt = 0;
+	bool print_statistics = false;
+
+	for (i = ROWQ_PRIO_REG_SWRITE; i < ROWQ_MAX_PRIO; i++) {
+		if (!list_empty(&rd->row_queues[i].fifo)) {
+			struct request *check_req = list_entry_rq(rd->row_queues[i].fifo.next);
+			unsigned int check_jiffies = ((unsigned long) (check_req)->csd.list.next);
+
+			if (time_after(jiffies,
+			    check_jiffies + msecs_to_jiffies(ROW_DUMP_REQ_STAT_MSECS))) {
+				printk("ROW scheduler: request(pid:%d)"
+					" stays in queue[%d][nr_reqs:%d] for %ums\n",
+					check_req->pid, i, rd->row_queues[i].nr_req,
+					jiffies_to_msecs(jiffies - check_jiffies));
+				print_statistics = true;
+			}
+		}
+	}
+
+	if (!print_statistics)
+		return;
+
+	printk("ROW scheduler: dispatched request statistics:");
+
+	for (i = 0; i < ROWQ_MAX_PRIO; i++) {
+		printk(" Q[%d]: %u;", i, rd->row_queues[i].dispatch_cnt);
+		total_dispatch_cnt += rd->row_queues[i].dispatch_cnt;
+		rd->row_queues[i].dispatch_cnt = 0;
+	}
+	printk("\n%u requests dispatched in %umsec\n",
+		total_dispatch_cnt, jiffies_to_msecs(jiffies - rd->last_update_jiffies));
+
+	rd->last_update_jiffies = jiffies;
 }
 
 static void kick_queue(struct work_struct *work)
@@ -211,10 +255,6 @@ static void row_add_request(struct request_queue *q,
 	struct row_queue *rqueue = RQ_ROWQ(rq);
 	s64 diff_ms;
 	bool queue_was_empty = list_empty(&rqueue->fifo);
-	unsigned long bv_page_flags = 0;
-
-	if (rq->bio && rq->bio->bi_io_vec && rq->bio->bi_io_vec->bv_page)
-		bv_page_flags = rq->bio->bi_io_vec->bv_page->flags;
 
 	list_add_tail(&rq->queuelist, &rqueue->fifo);
 	rd->nr_reqs[rq_data_dir(rq)]++;
@@ -247,9 +287,7 @@ static void row_add_request(struct request_queue *q,
 			rqueue->idle_data.begin_idling = false;
 			return;
 		}
-
-		if ((bv_page_flags & (1L << PG_readahead)) ||
-		    (diff_ms < rd->rd_idle_data.freq_ms)) {
+		if (diff_ms < rd->rd_idle_data.freq_ms) {
 			rqueue->idle_data.begin_idling = true;
 			row_log_rowq(rd, rqueue->prio, "Enable idling");
 		} else {
@@ -382,6 +420,7 @@ static void row_dispatch_insert(struct row_data *rd, struct request *rq)
 		rd->urgent_in_flight = true;
 	}
 	rqueue->nr_dispatched++;
+	rqueue->dispatch_cnt++;
 	row_clear_rowq_unserved(rd, rqueue->prio);
 	row_log_rowq(rd, rqueue->prio,
 		" Dispatched request %p nr_disp = %d", rq,
@@ -510,11 +549,17 @@ static int row_get_next_queue(struct request_queue *q, struct row_data *rd,
 	int i = start_idx;
 	bool restart = true;
 	int ret = -EIO;
+	bool print_debug_log = false;
 
 	do {
 		if (list_empty(&rd->row_queues[i].fifo) ||
 		    rd->row_queues[i].nr_dispatched >=
 		    rd->row_queues[i].disp_quantum) {
+			if ((i == ROWQ_PRIO_HIGH_READ || i == ROWQ_PRIO_REG_READ)
+			    && rd->row_queues[i].nr_dispatched >=
+			    rd->row_queues[i].disp_quantum)
+				print_debug_log = true;
+
 			i++;
 			if (i == end_idx && restart) {
 				
@@ -527,6 +572,44 @@ static int row_get_next_queue(struct request_queue *q, struct row_data *rd,
 			break;
 		}
 	} while (i < end_idx);
+
+	if (print_debug_log)
+		row_dump_reg_and_low_stat(rd);
+
+#define EXPIRE_REQUEST_THRESHOLD       20
+
+	if (ret == ROWQ_PRIO_REG_READ) {
+		struct request *check_req;
+		bool reset_quantum = false;
+
+		for (i = ret + 1; i < end_idx; i++) {
+			if (!row_queues_def[i].expire)
+				continue;
+
+			if (list_empty(&rd->row_queues[i].fifo)) {
+				reset_quantum = true;
+				continue;
+			}
+
+			check_req = list_entry_rq(rd->row_queues[i].fifo.next);
+
+			if (time_after(jiffies,
+			    ((unsigned long) (check_req)->csd.list.next)
+			    + row_queues_def[i].expire) &&
+			    rd->row_queues[i].nr_req > EXPIRE_REQUEST_THRESHOLD) {
+				rd->row_queues[ret].disp_quantum =
+					row_queues_def[ret].quantum / 2;
+				reset_quantum = false;
+				break;
+			} else
+				reset_quantum = true;
+		}
+
+		if (reset_quantum)
+			rd->row_queues[ret].disp_quantum =
+				row_queues_def[ret].quantum;
+	}
+
 
 	return ret;
 }
@@ -625,6 +708,7 @@ static void *row_init_queue(struct request_queue *q)
 	rdata->last_served_ioprio_class = IOPRIO_CLASS_NONE;
 	rdata->rd_idle_data.idling_queue_idx = ROWQ_MAX_PRIO;
 	rdata->dispatch_queue = q;
+	rdata->last_update_jiffies = jiffies;
 
 	return rdata;
 }

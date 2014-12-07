@@ -2,7 +2,7 @@
  *
  * Copyright (C) 2008 Google, Inc.
  * Author: Brian Swetland <swetland@google.com>
- * Copyright (c) 2009-2013, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2009-2014, The Linux Foundation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -105,6 +105,14 @@ enum usb_vdd_value {
 	VDD_MAX,
 	VDD_VAL_MAX,
 };
+
+
+enum usb_ext_chg_status {
+	DEFAULT = 1,
+	ACTIVE,
+	INACTIVE,
+};
+
 
 struct msm_otg_platform_data {
 	int *phy_init_seq;
@@ -265,11 +273,13 @@ struct msm_otg {
 	struct class *ext_chg_class;
 	struct device *ext_chg_device;
 	bool ext_chg_opened;
-	bool ext_chg_active;
+	enum usb_ext_chg_status ext_chg_active;
 	struct completion ext_chg_wait;
 	struct qpnp_vadc_chip *vadc_chip;
+	struct qpnp_vadc_chip	*vadc_dev;
 	int chg_check_count;
 	int ui_enabled;
+	bool pm_done;
 };
 
 struct ci13xxx_platform_data {
@@ -316,6 +326,7 @@ struct msm_usb_host_platform_data {
 	bool use_sec_phy;
 	bool no_selective_suspend;
 	int resume_gpio;
+	bool is_uicc;
 };
 
 struct msm_hsic_peripheral_platform_data {

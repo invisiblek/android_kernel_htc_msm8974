@@ -84,6 +84,12 @@ static void __init msm8974_early_memory(void)
 	of_scan_flat_dt(dt_scan_for_memory_hole, msm8974_reserve_table);
 }
 
+/*
+ * Used to satisfy dependencies for devices that need to be
+ * run early or in a particular order. Most likely your device doesn't fall
+ * into this category, and thus the driver should not be added here. The
+ * EPROBE_DEFER can satisfy most dependency problems.
+ */
 void __init msm8974_add_drivers(void)
 {
 	msm_smem_init();
@@ -143,8 +149,6 @@ static struct of_dev_auxdata msm8974_auxdata_lookup[] __initdata = {
 			"msm-tsens", NULL),
 	OF_DEV_AUXDATA("qcom,qcedev", 0xFD440000, \
 			"qcedev.0", NULL),
-	OF_DEV_AUXDATA("qcom,qcrypto", 0xFD440000, \
-			"qcrypto.0", NULL),
 	OF_DEV_AUXDATA("qcom,hsic-host", 0xF9A00000, \
 			"msm_hsic_host", NULL),
 	OF_DEV_AUXDATA("qcom,hsic-smsc-hub", 0, "msm_smsc_hub",

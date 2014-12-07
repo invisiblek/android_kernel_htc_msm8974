@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -16,6 +16,14 @@
 #include <linux/log2.h>
 #include <mach/ocmem.h>
 
+/* Set up look-up tables to convert HAL_* to HFI_*.
+ *
+ * The tables below mostly take advantage of the fact that most
+ * HAL_* types are defined bitwise. So if we index them normally
+ * when declaring the tables, we end up with huge arrays with wasted
+ * space.  So before indexing them, we apply log2 to use a more
+ * sensible index.
+ */
 static int profile_table[] = {
 	[ilog2(HAL_H264_PROFILE_BASELINE)] = HFI_H264_PROFILE_BASELINE,
 	[ilog2(HAL_H264_PROFILE_MAIN)] = HFI_H264_PROFILE_MAIN,
@@ -69,6 +77,8 @@ static int nal_type[] = {
 static inline int hal_to_hfi_type(int property, int hal_type)
 {
 	if (hal_type && (roundup_pow_of_two(hal_type) != hal_type)) {
+		/* Not a power of 2, it's not going
+		 * to be in any of the tables anyway */
 		return -EINVAL;
 	}
 
@@ -332,12 +342,6 @@ static int get_hfi_extradata_index(enum hal_extradata_id index)
 	case HAL_EXTRADATA_RECOVERY_POINT_SEI:
 		ret = HFI_PROPERTY_PARAM_VDEC_RECOVERY_POINT_SEI_EXTRADATA;
 		break;
-	case HAL_EXTRADATA_CLOSED_CAPTION_UD:
-		ret = HFI_PROPERTY_PARAM_VDEC_CLOSED_CAPTION_EXTRADATA;
-		break;
-	case HAL_EXTRADATA_AFD_UD:
-		ret = HFI_PROPERTY_PARAM_VDEC_AFD_EXTRADATA;
-		break;
 	case HAL_EXTRADATA_MULTISLICE_INFO:
 		ret = HFI_PROPERTY_PARAM_VENC_MULTI_SLICE_INFO;
 		break;
@@ -349,6 +353,21 @@ static int get_hfi_extradata_index(enum hal_extradata_id index)
 		break;
 	case HAL_EXTRADATA_MPEG2_SEQDISP:
 		ret = HFI_PROPERTY_PARAM_VDEC_MPEG2_SEQDISP_EXTRADATA;
+		break;
+	case HAL_EXTRADATA_FRAME_QP:
+		ret = HFI_PROPERTY_PARAM_VDEC_FRAME_QP_EXTRADATA;
+		break;
+	case HAL_EXTRADATA_FRAME_BITS_INFO:
+		ret = HFI_PROPERTY_PARAM_VDEC_FRAME_BITS_INFO_EXTRADATA;
+		break;
+	case HAL_EXTRADATA_LTR_INFO:
+		ret = HFI_PROPERTY_PARAM_VENC_LTR_INFO;
+		break;
+	case HAL_EXTRADATA_METADATA_MBI:
+		ret = HFI_PROPERTY_PARAM_VENC_MBI_DUMPING;
+		break;
+	case HAL_EXTRADATA_STREAM_USERDATA:
+		ret = HFI_PROPERTY_PARAM_VDEC_STREAM_USERDATA_EXTRADATA;
 		break;
 	default:
 		dprintk(VIDC_WARN, "Extradata index not found: %d\n", index);
@@ -377,6 +396,28 @@ static u32 get_hfi_buf_mode(enum buffer_mode_type hal_buf_mode)
 		break;
 	}
 	return buf_mode;
+}
+
+static u32 get_hfi_ltr_mode(enum ltr_mode ltr_mode_type)
+{
+	u32 ltrmode;
+	switch (ltr_mode_type) {
+	case HAL_LTR_MODE_DISABLE:
+		ltrmode = HFI_LTR_MODE_DISABLE;
+		break;
+	case HAL_LTR_MODE_MANUAL:
+		ltrmode = HFI_LTR_MODE_MANUAL;
+		break;
+	case HAL_LTR_MODE_PERIODIC:
+		ltrmode = HFI_LTR_MODE_PERIODIC;
+		break;
+	default:
+		dprintk(VIDC_ERR, "Invalid ltr mode :0x%x\n",
+			ltr_mode_type);
+		ltrmode = HFI_LTR_MODE_DISABLE;
+		break;
+	}
+	return ltrmode;
 }
 
 int create_pkt_cmd_session_set_buffers(
@@ -1112,12 +1153,17 @@ int create_pkt_cmd_session_set_property(
 		min_qp = hal_range->min_qp;
 		max_qp = hal_range->max_qp;
 
+		/* We'll be packing in the qp, so make sure we
+		 * won't be losing data when masking */
 		if (min_qp > 0xff || max_qp > 0xff) {
 			dprintk(VIDC_ERR, "qp value out of range\n");
 			rc = -ERANGE;
 			break;
 		}
 
+		/* When creating the packet, pack the qp value as
+		 * 0xiippbb, where ii = qp range for I-frames,
+		 * pp = qp range for P-frames, etc. */
 		hfi->min_qp = min_qp | min_qp << 8 | min_qp << 16;
 		hfi->max_qp = max_qp | max_qp << 8 | max_qp << 16;
 		hfi->layer_id = hal_range->layer_id;
@@ -1390,7 +1436,63 @@ int create_pkt_cmd_session_set_property(
 		pkt->size += sizeof(u32) + sizeof(struct hfi_enable);
 		break;
 	}
-	
+	case HAL_PARAM_VENC_LTRMODE:
+	{
+		struct hfi_ltrmode *hfi;
+		struct hal_ltrmode *hal = pdata;
+		pkt->rg_property_data[0] =
+			HFI_PROPERTY_PARAM_VENC_LTRMODE;
+		hfi = (struct hfi_ltrmode *) &pkt->rg_property_data[1];
+		hfi->ltrmode = get_hfi_ltr_mode(hal->ltrmode);
+		hfi->ltrcount = hal->ltrcount;
+		hfi->trustmode = hal->trustmode;
+		pkt->size += sizeof(u32) + sizeof(struct hfi_ltrmode);
+		pr_err("SET LTR\n");
+		break;
+	}
+	case HAL_CONFIG_VENC_USELTRFRAME:
+	{
+		struct hfi_ltruse *hfi;
+		struct hal_ltruse *hal = pdata;
+		pkt->rg_property_data[0] =
+			HFI_PROPERTY_CONFIG_VENC_USELTRFRAME;
+		hfi = (struct hfi_ltruse *) &pkt->rg_property_data[1];
+		hfi->frames = hal->frames;
+		hfi->refltr = hal->refltr;
+		hfi->useconstrnt = hal->useconstrnt;
+		pkt->size += sizeof(u32) + sizeof(struct hfi_ltruse);
+		pr_err("USE LTR\n");
+		break;
+	}
+	case HAL_CONFIG_VENC_MARKLTRFRAME:
+	{
+		struct hfi_ltrmark *hfi;
+		struct hal_ltrmark *hal = pdata;
+		pkt->rg_property_data[0] =
+			HFI_PROPERTY_CONFIG_VENC_MARKLTRFRAME;
+		hfi = (struct hfi_ltrmark *) &pkt->rg_property_data[1];
+		hfi->markframe = hal->markframe;
+		pkt->size += sizeof(u32) + sizeof(struct hfi_ltrmark);
+		pr_err("MARK LTR\n");
+		break;
+	}
+	case HAL_PARAM_VENC_HIER_P_MAX_ENH_LAYERS:
+	{
+		pkt->rg_property_data[0] =
+			HFI_PROPERTY_PARAM_VENC_HIER_P_MAX_NUM_ENH_LAYER;
+		pkt->rg_property_data[1] = *(u32 *)pdata;
+		pkt->size += sizeof(u32) * 2;
+		break;
+	}
+	case HAL_CONFIG_VENC_HIER_P_NUM_FRAMES:
+	{
+		pkt->rg_property_data[0] =
+			HFI_PROPERTY_CONFIG_VENC_HIER_P_ENH_LAYER;
+		pkt->rg_property_data[1] = *(u32 *)pdata;
+		pkt->size += sizeof(u32) * 2;
+		break;
+	}
+	/* FOLLOWING PROPERTIES ARE NOT IMPLEMENTED IN CORE YET */
 	case HAL_CONFIG_BUFFER_REQUIREMENTS:
 	case HAL_CONFIG_PRIORITY:
 	case HAL_CONFIG_BATCH_INFO:
@@ -1417,7 +1519,7 @@ int create_pkt_cmd_session_set_property(
 	case HAL_CONFIG_VENC_TIMESTAMP_SCALE:
 	case HAL_PARAM_VENC_LOW_LATENCY:
 	default:
-		dprintk(VIDC_ERR, "DEFAULT: Calling 0x%x", ptype);
+		dprintk(VIDC_ERR, "DEFAULT: Calling 0x%x\n", ptype);
 		rc = -ENOTSUPP;
 		break;
 	}
