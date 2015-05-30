@@ -13,6 +13,9 @@ mdss-mdp-objs += mdss_mdp_splash_logo.o
 mdss-mdp-objs += mdss_mdp_wb.o
 obj-$(CONFIG_FB_MSM_MDSS) += mdss-mdp.o
 
+# FIXME
+obj-y += mdss_htc_util.o
+
 ifeq ($(CONFIG_FB_MSM_MDSS),y)
 obj-$(CONFIG_DEBUG_FS) += mdss_debug.o mdss_debug_xlog.o
 endif
@@ -44,3 +47,5 @@ obj-$(CONFIG_FB_MSM_QPIC_ILI_QVGA_PANEL) += qpic_panel_ili_qvga.o
 obj-$(CONFIG_FB_MSM_MDSS) += mdss_fb.o
 
 obj-$(CONFIG_FB_MSM_MDSS_DSI_CTRL_STATUS) += mdss_dsi_status.o
+
+obj-$(CONFIG_FB_MSM_MDSS_HDMI_MHL_SII8240_SII8558) += sii8240_8558/

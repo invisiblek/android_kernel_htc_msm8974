@@ -26,6 +26,11 @@
 #include "mdss_mdp_trace.h"
 #include "mdss_debug.h"
 
+#define HTC
+#ifdef HTC //fixme
+#include "mdss_dsi.h"
+#endif
+
 static void mdss_mdp_xlog_mixer_reg(struct mdss_mdp_ctl *ctl);
 static inline u64 fudge_factor(u64 val, u32 numer, u32 denom)
 {
@@ -637,6 +642,30 @@ static bool mdss_mdp_video_mode_intf_connected(struct mdss_mdp_ctl *ctl)
 	return false;
 }
 
+#define HTC
+#ifdef HTC // fixme
+static u32 mdss_mdp_extra_bw(struct mdss_mdp_ctl *ctl)
+{
+	u32 extra_bw = 0;
+	struct mdss_dsi_ctrl_pdata *ctrl_pdata = NULL;
+
+	if (!ctl->panel_data)
+		return 0;
+
+	ctrl_pdata = container_of(ctl->panel_data, struct mdss_dsi_ctrl_pdata,
+								panel_data);
+	if (!ctrl_pdata)
+		return 0;
+
+	if (ctrl_pdata->frame_suffix_cmds.cmds == NULL)
+		return 0;
+
+	extra_bw = SZ_1M;
+	pr_debug("Request extra bandwidth\n");
+
+	return extra_bw;
+}
+#endif
 
 static void __mdss_mdp_perf_calc_ctl_helper(struct mdss_mdp_ctl *ctl,
 		struct mdss_mdp_perf_params *perf,
@@ -653,6 +682,10 @@ static void __mdss_mdp_perf_calc_ctl_helper(struct mdss_mdp_ctl *ctl,
 		perf->bw_overlap += tmp.bw_overlap;
 		perf->prefill_bytes += tmp.prefill_bytes;
 		perf->mdp_clk_rate = tmp.mdp_clk_rate;
+#define HTC
+#ifdef HTC //fixme
+		perf->bw_overlap += mdss_mdp_extra_bw(ctl);
+#endif
 	}
 
 	if (right_cnt && ctl->mixer_right) {

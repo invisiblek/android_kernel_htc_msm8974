@@ -54,6 +54,10 @@
 
 #include "mdss_fb.h"
 #include "mdss_mdp_splash_logo.h"
+#define HTC
+#ifdef HTC //fixme
+#include "mdss_dsi.h"
+#endif
 
 #ifdef CONFIG_FB_MSM_TRIPLE_BUFFER
 #define MDSS_FB_NUM 3
@@ -73,6 +77,9 @@ static u32 mdss_fb_pseudo_palette[16] = {
 };
 
 static struct msm_mdp_interface *mdp_instance;
+#ifdef HTC //fixme
+extern struct mdss_dsi_pwrctrl pwrctrl_pdata;
+#endif
 
 static int mdss_fb_register(struct msm_fb_data_type *mfd);
 static int mdss_fb_open(struct fb_info *info, int user);
@@ -404,6 +411,8 @@ static ssize_t mdss_fb_get_idle_notify(struct device *dev,
 
 	return ret;
 }
+
+// HTC had a method in here called mdss_fb_get_partialupdate, i didnt copy it over...
 
 static ssize_t mdss_fb_get_panel_info(struct device *dev,
 		struct device_attribute *attr, char *buf)
@@ -2266,6 +2275,11 @@ static int __mdss_fb_display_thread(void *data)
 	struct msm_fb_data_type *mfd = data;
 	int ret;
 	struct sched_param param;
+#define HTC
+#ifdef HTC //FIXME
+	struct mdss_panel_data *pdata = dev_get_platdata(&mfd->pdev->dev);
+	static int frame_count = 0;
+#endif
 
 	param.sched_priority = 16;
 	ret = sched_setscheduler(current, SCHED_FIFO, &param);
@@ -2280,10 +2294,25 @@ static int __mdss_fb_display_thread(void *data)
 
 		if (kthread_should_stop())
 			break;
-
+#ifdef HTC //fixme
+		if (mfd->panel_info->skip_frame) {
+			if (!frame_count) {
+				if (pwrctrl_pdata.bkl_config)
+					pwrctrl_pdata.bkl_config(pdata, 0);
+				else
+					pdata->set_backlight(pdata, 0);
+			}
+			frame_count++;
+			if (frame_count > 2)
+				mfd->panel_info->skip_frame = 0;
+	       	} else {
+#endif
 		ret = __mdss_fb_perform_commit(mfd);
 		atomic_dec(&mfd->commits_pending);
 		wake_up_all(&mfd->idle_wait_q);
+#ifdef HTC //FIXME
+	    }
+#endif
 	}
 
 	atomic_set(&mfd->commits_pending, 0);

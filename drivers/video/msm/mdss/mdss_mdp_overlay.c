@@ -2510,6 +2510,14 @@ static int mdss_fb_get_hw_caps(struct msm_fb_data_type *mfd,
 	caps->max_smp_cnt = mdss_res->smp_mb_cnt;
 	caps->smp_per_pipe = mdata->smp_mb_per_pipe;
 
+#define HTC
+#ifdef HTC //FIXME
+	if(mfd->panel_info->partial_update_enabled)
+		caps->partial_update |= PANEL_PARTIAL_UPDATE_ENABLED;
+	if(mfd->panel_info->even_roi)
+		caps->partial_update |= PANEL_EVEN_ROI_UPDATE;
+#endif
+
 	return 0;
 }
 

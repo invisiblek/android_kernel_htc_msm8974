@@ -18,6 +18,11 @@
 #include "mdss_debug.h"
 #include "mdss_mdp_trace.h"
 
+#define HTC
+#ifdef HTC //fixme
+#include "mdss_dsi.h"
+#endif
+
 #define VSYNC_EXPIRE_TICK 4
 
 #define MAX_SESSIONS 2
@@ -45,6 +50,9 @@ struct mdss_mdp_cmd_ctx {
 	struct work_struct clk_work;
 	struct delayed_work ulps_work;
 	struct work_struct pp_done_work;
+#ifdef HTC //FIXME
+	struct work_struct post_commit_cmd_work;
+#endif
 	atomic_t pp_done_cnt;
 
 	/* te config */
@@ -389,6 +397,43 @@ static void pingpong_done_work(struct work_struct *work)
 	}
 }
 
+#define HTC
+#ifdef HTC //fixme
+void mdss_mdp_post_commit_dsi_cmd(struct mdss_mdp_ctl *ctl)
+{
+	struct dcs_cmd_req cmdreq;
+	struct mdss_dsi_ctrl_pdata *ctrl_pdata = NULL;
+	struct mdss_panel_data *pdata;
+	ctrl_pdata = container_of(ctl->panel_data, struct mdss_dsi_ctrl_pdata,
+								panel_data);
+
+	if (ctrl_pdata->frame_suffix_cmds.cmd_cnt == 0)
+		return;
+
+	pdata = ctl->panel_data;
+
+	memset(&cmdreq, 0, sizeof(cmdreq));
+	cmdreq.cmds = ctrl_pdata->frame_suffix_cmds.cmds;
+	cmdreq.cmds_cnt = ctrl_pdata->frame_suffix_cmds.cmd_cnt;
+	cmdreq.flags = CMD_REQ_COMMIT | CMD_REQ_HS_MODE;
+	cmdreq.rlen = 0;
+	cmdreq.cb = NULL;
+
+	mdss_dsi_cmdlist_put(ctrl_pdata, &cmdreq);
+
+	return;
+}
+
+static void do_post_commit_cmd_work(struct work_struct *work)
+{
+	struct mdss_mdp_cmd_ctx *ctx =
+		container_of(work, typeof(*ctx), post_commit_cmd_work);
+
+	if (ctx->ctl)
+		mdss_mdp_post_commit_dsi_cmd(ctx->ctl);
+}
+#endif
+
 static void clk_ctrl_work(struct work_struct *work)
 {
 	struct mdss_mdp_cmd_ctx *ctx =
@@ -706,6 +751,8 @@ int mdss_mdp_cmd_stop(struct mdss_mdp_ctl *ctl)
 		return -ENODEV;
 	}
 
+	cancel_work_sync(&ctx->post_commit_cmd_work);
+
 	list_for_each_entry_safe(handle, tmp, &ctx->vsync_handlers, list)
 		mdss_mdp_cmd_remove_vsync_handler(ctl, handle);
 	MDSS_XLOG(ctl->num, ctx->koff_cnt, ctx->clk_enabled,
@@ -822,6 +869,7 @@ int mdss_mdp_cmd_start(struct mdss_mdp_ctl *ctl)
 	INIT_WORK(&ctx->clk_work, clk_ctrl_work);
 	INIT_DELAYED_WORK(&ctx->ulps_work, __mdss_mdp_cmd_ulps_work);
 	INIT_WORK(&ctx->pp_done_work, pingpong_done_work);
+	INIT_WORK(&ctx->post_commit_cmd_work, do_post_commit_cmd_work);
 	atomic_set(&ctx->pp_done_cnt, 0);
 	INIT_LIST_HEAD(&ctx->vsync_handlers);
 

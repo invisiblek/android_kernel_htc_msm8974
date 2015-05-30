@@ -27,6 +27,11 @@
 #include "mdss_dsi.h"
 #include "mdss_debug.h"
 
+#define HTC
+#ifdef HTC //FIXME
+struct mdss_dsi_pwrctrl pwrctrl_pdata;
+#endif
+
 static int mdss_dsi_regulator_init(struct platform_device *pdev)
 {
 	struct mdss_dsi_ctrl_pdata *ctrl_pdata = NULL;
@@ -41,6 +46,15 @@ static int mdss_dsi_regulator_init(struct platform_device *pdev)
 		pr_err("%s: invalid driver data\n", __func__);
 		return -EINVAL;
 	}
+
+#define HTC
+#ifdef HTC //FIXME
+	if (pwrctrl_pdata.dsi_regulator_init) {
+		return pwrctrl_pdata.dsi_regulator_init(pdev);
+	} else {
+		pr_info("%s: no dsi_regulator_init function is specified\n", __func__);
+	}
+#endif
 
 	return msm_dss_config_vreg(&pdev->dev,
 			ctrl_pdata->power_data.vreg_config,
@@ -62,8 +76,15 @@ static int mdss_dsi_panel_power_on(struct mdss_panel_data *pdata, int enable)
 				panel_data);
 	pr_debug("%s: enable=%d\n", __func__, enable);
 
+#define HTC
+#ifdef HTC // FIXME
+	if (pwrctrl_pdata.dsi_power_on) {
+		return pwrctrl_pdata.dsi_power_on(pdata, !!enable);
+	}
+#else
 	if (pdata->panel_info.dynamic_switch_pending)
 		return 0;
+#endif
 
 	if (enable) {
 		ret = msm_dss_enable_vreg(
@@ -74,8 +95,17 @@ static int mdss_dsi_panel_power_on(struct mdss_panel_data *pdata, int enable)
 				__func__, ret);
 			goto error;
 		}
-
+#ifdef HTC //FIXME
+		if (pwrctrl_pdata.dsi_panel_reset) {
+			ret = pwrctrl_pdata.dsi_panel_reset(pdata, 1);
+			if (ret) {
+				pr_err("HTC Panel power reset failed. rc=%d\n", ret);
+				goto error;
+			}
+		} else {
+#else
 		if (!pdata->panel_info.mipi.lp11_init) {
+#endif
 			ret = mdss_dsi_panel_reset(pdata, 1);
 			if (ret) {
 				pr_err("%s: Panel reset failed. rc=%d\n",
@@ -88,6 +118,15 @@ static int mdss_dsi_panel_power_on(struct mdss_panel_data *pdata, int enable)
 			}
 		}
 	} else {
+#ifdef HTC //FIXME
+		if (pwrctrl_pdata.dsi_panel_reset) {
+			ret = pwrctrl_pdata.dsi_panel_reset(pdata, 0);
+			if (ret) {
+				pr_err("HTC Panel power reset failed. rc=%d\n", ret);
+				goto error;
+			}
+		} else {
+#endif
 		ret = mdss_dsi_panel_reset(pdata, 0);
 		if (ret) {
 			pr_err("%s: Panel reset failed. rc=%d\n",
@@ -101,6 +140,9 @@ static int mdss_dsi_panel_power_on(struct mdss_panel_data *pdata, int enable)
 			pr_err("%s: Failed to disable vregs.rc=%d\n",
 				__func__, ret);
 		}
+#ifdef HTC //FIXME
+		}
+#endif
 	}
 error:
 	return ret;
@@ -678,6 +720,40 @@ int mdss_dsi_on(struct mdss_panel_data *pdata)
 				__func__, ctrl_pdata, ctrl_pdata->ndx);
 
 	pinfo = &pdata->panel_info;
+#define HTC
+#ifdef HTC // FIXME
+	if (pwrctrl_pdata.dsi_power_on) {
+		ret = pwrctrl_pdata.dsi_power_on(pdata, 1);
+		if (ret) {
+			pr_err("%s: HTC Panel power on failed\n", __func__);
+			return ret;
+		}
+	} else {
+		ret = msm_dss_enable_vreg(ctrl_pdata->power_data.vreg_config,
+			ctrl_pdata->power_data.num_vreg, 1);
+		if (ret) {
+			pr_err("%s:Failed to enable vregs. rc=%d\n", __func__, ret);
+			return ret;
+		}
+	}
+
+	if (!pdata->panel_info.mipi.lp11_init) {
+		if (pwrctrl_pdata.dsi_panel_reset) {
+			ret = pwrctrl_pdata.dsi_panel_reset(pdata, 1);
+			if (ret) {
+				pr_err("HTC Panel power reset failed. rc=%d\n", ret);
+				return ret;
+			}
+		} else if(!pdata->panel_info.first_power_on) {
+			ret = mdss_dsi_panel_reset(pdata, 1);
+			if (ret) {
+				pr_err("%s: Panel reset failed. rc=%d\n",
+						__func__, ret);
+				return ret;
+			}
+		}
+	}
+#else
 	mipi = &pdata->panel_info.mipi;
 
 	ret = mdss_dsi_panel_power_on(pdata, 1);
@@ -685,7 +761,7 @@ int mdss_dsi_on(struct mdss_panel_data *pdata)
 		pr_err("%s:Panel power on failed. rc=%d\n", __func__, ret);
 		return ret;
 	}
-
+#endif
 	mdss_dsi_clk_ctrl(ctrl_pdata, DSI_BUS_CLKS, 1);
 	if (ret) {
 		pr_err("%s: failed to enable bus clocks. rc=%d\n", __func__,
@@ -707,7 +783,8 @@ int mdss_dsi_on(struct mdss_panel_data *pdata)
 
 	mdss_dsi_clk_ctrl(ctrl_pdata, DSI_ALL_CLKS, 1);
 
-	__mdss_dsi_ctrl_setup(pdata);
+	__mdss_dsi_ctrl_setup(pdata);  // CHECK THIS, PROBABLY WHERE SHIT'S BROKEN
+				       // HTC DID SOME WEIRD SHIT HERE IN THEIR DRIVER
 	mdss_dsi_sw_reset(pdata);
 	mdss_dsi_host_init(pdata);
 
@@ -715,12 +792,34 @@ int mdss_dsi_on(struct mdss_panel_data *pdata)
 	 * Issue hardware reset line after enabling the DSI clocks and data
 	 * data lanes for LP11 init
 	 */
+#ifdef HTC //FIXME
+	if (pdata->panel_info.mipi.lp11_init) {
+		if (pwrctrl_pdata.dsi_panel_reset) {
+			ret = pwrctrl_pdata.dsi_panel_reset(pdata, 1);
+			if (ret) {
+				pr_err("HTC Panel power reset failed. rc=%d\n", ret);
+				return ret;
+			}
+		}
+		else if(!pdata->panel_info.first_power_on) {
+			ret = mdss_dsi_panel_reset(pdata, 1);
+			if (ret) {
+				pr_err("%s: Panel reset failed. rc=%d\n",
+						__func__, ret);
+				return ret;
+			}
+		}
+	}
+	if (pdata->panel_info.mipi.init_delay)
+		usleep(pdata->panel_info.mipi.init_delay);
+#else
 	if (mipi->lp11_init)
 		mdss_dsi_panel_reset(pdata, 1);
 
 	if (mipi->init_delay)
 		usleep(mipi->init_delay);
 
+#endif
 	if (mipi->force_clk_lane_hs) {
 		u32 tmp;
 
@@ -1631,6 +1730,29 @@ static struct platform_driver mdss_dsi_ctrl_driver = {
 	},
 };
 
+#define HTC
+#ifdef HTC //fixme
+static int __devinit mdss_dsi_pwrctrl_probe(struct platform_device *pdev)
+{
+	int rc = 0;
+
+	pr_info("%s:%d, debug info id=%d", __func__, __LINE__, pdev->id);
+
+	if (pdev->dev.platform_data)
+		memcpy(&pwrctrl_pdata, pdev->dev.platform_data, sizeof(pwrctrl_pdata));
+	pr_info("%s: %p\n", __func__, pdev->dev.platform_data);
+
+	return rc;
+}
+#endif
+
+static struct platform_driver mdss_dsi_pwrctrl_driver = {
+	.probe = mdss_dsi_pwrctrl_probe,
+	.driver = {
+		.name = "mdss_dsi_pwrctrl",
+	},
+};
+
 static int mdss_dsi_register_driver(void)
 {
 	return platform_driver_register(&mdss_dsi_ctrl_driver);
@@ -1640,6 +1762,14 @@ static int __init mdss_dsi_driver_init(void)
 {
 	int ret;
 
+#define HTC
+#ifdef HTC //fixme
+	ret = platform_driver_register(&mdss_dsi_pwrctrl_driver);
+	if (ret) {
+		pr_err("[DISP] register mdss_dsi_pwrctrl failed!\n");
+		return ret;
+	}
+#endif
 	ret = mdss_dsi_register_driver();
 	if (ret) {
 		pr_err("mdss_dsi_register_driver() failed!\n");

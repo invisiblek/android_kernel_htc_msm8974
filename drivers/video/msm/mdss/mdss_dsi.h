@@ -82,6 +82,7 @@ enum dsi_panel_bl_ctrl {
 	BL_PWM,
 	BL_WLED,
 	BL_DCS_CMD,
+	BL_I2C,
 	UNKNOWN_CTRL,
 };
 
@@ -105,6 +106,11 @@ enum dsi_lane_map_type {
 	DSI_LANE_MAP_1032,
 	DSI_LANE_MAP_2103,
 	DSI_LANE_MAP_3210,
+};
+
+enum pwm_ctl {
+	PWM_PMIC = 1,
+	PWM_EXT = 2,
 };
 
 #define CTRL_STATE_UNKNOWN		0x00
@@ -223,6 +229,16 @@ struct dsi_drv_cm_data {
 	int broadcast_enable;
 };
 
+#define HTC
+#ifdef HTC //FIXME
+struct mdss_dsi_pwrctrl {
+        int (*dsi_regulator_init) (struct platform_device *pdev);
+        int (*dsi_power_on) (struct mdss_panel_data *pdata, int enable);
+        int (*dsi_panel_reset) (struct mdss_panel_data *pdata, int enable);
+        void (*bkl_config) (struct mdss_panel_data *pdata, int enable);
+};
+#endif
+
 enum {
 	DSI_CTRL_0,
 	DSI_CTRL_1,
@@ -299,6 +315,8 @@ struct mdss_dsi_ctrl_pdata {
 	struct dsi_panel_cmds video2cmd;
 	struct dsi_panel_cmds cmd2video;
 
+	struct dsi_panel_cmds display_on_cmds;
+
 	struct dcs_cmd_list cmdlist;
 	struct completion dma_comp;
 	struct completion mdp_comp;
@@ -316,6 +334,29 @@ struct mdss_dsi_ctrl_pdata {
 	struct dsi_buf rx_buf;
 	struct dsi_buf status_buf;
 	int status_mode;
+
+	void *dsi_pwrctrl_data;
+
+	int pwm_min;
+	int pwm_default;
+	int pwm_max;
+
+	int pwm_ctl_type;
+
+	int display_on_wait;
+
+	struct dsi_panel_cmds cabc_off_cmds;
+	struct dsi_panel_cmds cabc_ui_cmds;
+	struct dsi_panel_cmds cabc_video_cmds;
+	struct dsi_panel_cmds dimming_on_cmds;
+	struct dsi_panel_cmds frame_suffix_cmds;
+
+	int brt_dim;
+	int brt_min;
+	int brt_def;
+	int brt_high;
+	int brt_extra;
+	int brt_max;
 };
 
 struct dsi_status_data {
@@ -385,7 +426,11 @@ int mdss_panel_get_dst_fmt(u32 bpp, char mipi_mode, u32 pixel_packing,
 
 int mdss_dsi_register_recovery_handler(struct mdss_dsi_ctrl_pdata *ctrl,
 		struct mdss_panel_recovery *recovery);
-
+#define HTC
+#ifdef HTC //fixme
+int htc_mdss_dsi_parse_dcs_cmds(struct device_node *np,
+         struct dsi_panel_cmds *pcmds, char *cmd_key, char *link_key);
+#endif
 static inline bool mdss_dsi_broadcast_mode_enabled(void)
 {
 	return ctrl_list[DSI_CTRL_MASTER]->shared_pdata.broadcast_enable &&
